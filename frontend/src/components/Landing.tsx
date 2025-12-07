@@ -1,9 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Socket, io } from 'socket.io-client';
+import { socket } from '../utils/socket';
 
-const URL = 'http://localhost:3000';
-const socket = io(URL);
+
 export const Landing = () => {
   const navigate = useNavigate();
   const [roomId, setRoomId] = React.useState('');
@@ -21,7 +20,6 @@ export const Landing = () => {
   }
 
   function handleJoinRoom() {
-    console.log('Joining Room clicked');
     socket.emit('joinroom', { roomId: roomId, username: 'yashwanth' });
     socket.on('roomjoined', data => {
       console.log('Joined Room with ID:', data.roomId);
@@ -40,7 +38,6 @@ export const Landing = () => {
           onChange={e => setRoomId(e.target.value)}
           className="border-2 border-solid"
         />
-        {roomId}
         <button onClick={handleJoinRoom}>Join Room</button>
       </div>
     </div>
