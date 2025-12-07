@@ -1,10 +1,46 @@
-// src/server.ts
+import { Socket } from "socket.io";
+import express from "express";
+import { UserManager } from "./controllers/UserManager";
+import cors from "cors";
+const http = require("http");
+const { Server } = require("socket.io");
 
-import app from "./app";
+const app = express();
 
+const server = http.createServer(app);
 
-const PORT = process.env.PORT || 5000;
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
 
-app.listen(PORT, () => {
+const userManager = new UserManager();
+
+io.on("connection", (socket: Socket) => {
+  console.log("user connected:", socket.id);
+  socket.on("createroom", (username: string) => {
+    const roomId = userManager.createRoom(socket, username);
+    socket.emit("roomcreated", { roomId: roomId });
+  });
+  socket.on("joinroom", ({roomId, username}) => {
+    const response=userManager.joinRoom(roomId, socket, username);
+    socket.emit("roomjoined", { roomId: roomId ,peer:response}); // 
+  });
+  socket.on("instantmatch", (username: string) => {
+    // Implement instant match logic here
+  });
+  socket.on("disconnect", () => {
+    console.log("user disconnected", socket.id);
+  });
+});
+
+app.get("/", (req, res) => {
+  res.send("Server is running on port 3000");
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
