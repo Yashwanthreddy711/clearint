@@ -1,6 +1,7 @@
 import { Socket } from "socket.io";
 import { RoomManager } from './RoomManager';
 
+
 export interface User{
     name:string;
     socket:Socket
@@ -25,10 +26,22 @@ export class UserManager {
     return this.roomManager.createRoomForUser(socket,username);
   }
 
-  joinRoom(roomId: string,socket:Socket, username: string): string {
+  joinRoom(roomId: string,socket:Socket, username: string) {
     // Logic to join a room using RoomManager
     return this.roomManager.joinRoomForUser(roomId, socket, username);
   }
-
-    
+  getPeerDetails(roomId:string,socket:Socket, username:string) {
+    const person1=socket.id;
+    const person2=this.roomManager.getPeerDetailsWithRoomId(roomId,person1);
+    if(person2===null){
+        return "Peer not found";
+    }
+    return person2;
+  }
+  onIceCandidates(sdp:any,socketId:string,type:'Sender' | 'receiver',roomId:string){
+    const peer=this.roomManager.getPeerDetailsWithRoomId(roomId,socketId);
+    if(peer){
+        peer.emit("add-ice-candidate",{sdp:sdp,type:type});
+    }
+  }
 }
