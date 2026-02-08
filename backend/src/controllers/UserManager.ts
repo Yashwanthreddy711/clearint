@@ -1,6 +1,7 @@
 import { Socket } from "socket.io";
 import { RoomManager } from './RoomManager';
 
+
 export interface User{
     name:string;
     socket:Socket
@@ -36,5 +37,11 @@ export class UserManager {
         return "Peer not found";
     }
     return person2;
+  }
+  onIceCandidates(sdp:any,socketId:string,type:'Sender' | 'receiver',roomId:string){
+    const peer=this.roomManager.getPeerDetailsWithRoomId(roomId,socketId);
+    if(peer){
+        peer.emit("add-ice-candidate",{sdp:sdp,type:type});
+    }
   }
 }

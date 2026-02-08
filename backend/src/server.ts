@@ -35,12 +35,31 @@ io.on("connection", (socket: Socket) => {
      peer.emit("send-offer",{ peerSocket: socket.id });
   });
 
-   socket.on("receive-offer", ({ roomId }) => {
-     let peer :any=null;
-     peer=userManager.getPeerDetails(roomId,socket,"");
-     console.log("checking peer before emitting offer:", peer,typeof peer);
-     peer.emit("receive-offer", { roomId:roomId,socketId: socket.id });
-  });
+  //  socket.on("receive-offer", ({ roomId }) => {
+  //    let peer :any=null;
+  //    peer=userManager.getPeerDetails(roomId,socket,"");
+  //    console.log("checking peer before emitting offer:", peer,typeof peer);
+  //    peer.emit("receive-offer", { roomId:roomId,socketId: socket.id });
+  // });
+
+   socket.on("ice-candidate",({candidate,type,roomId})=>{
+    userManager.onIceCandidates(candidate,socket.id,type,roomId);
+   })
+
+   socket.on("offer",({sdp,roomId})=>{
+    let peer :any=null;
+    peer=userManager.getPeerDetails(roomId,socket,"");
+    console.log("checking peer before emitting offer:", peer,typeof peer);
+    peer.emit("offer",{sdp:sdp,roomId:roomId});
+   });
+
+   socket.on("answer",({sdp,roomId})=>{
+    let peer :any=null;
+    peer=userManager.getPeerDetails(roomId,socket,"");
+    console.log("checking peer before emitting answer:", peer,typeof peer);
+    peer.emit("answer",{sdp:sdp,roomId:roomId});
+   });  
+   
   // socket.on("send-offer", ({ peerSocket }) => {
   //   peerSocket.emit("receive-offer", { socket: socket });
   // });
