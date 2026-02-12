@@ -19,52 +19,38 @@ const userManager = new UserManager();
 
 io.on("connection", (socket: Socket) => {
   console.log("user connected:", socket.id);
-  socket.on("createroom", (username: string) => {
+  socket.on("room:create", (username: string) => {
     const roomId = userManager.createRoom(socket, username);
-    socket.emit("roomcreated", { roomId: roomId });
+    socket.emit("room:created", { roomId: roomId });
   });
-  socket.on("joinroom", ({roomId, username}) => {
-    const response=userManager.joinRoom(roomId, socket, username);
-    console.log("Join room response:", response);
-    socket.emit("roomjoined", { roomId: roomId ,peer:response}); // 
+  socket.on("room:join-request", ({ roomId, username }) => {
+    const response = userManager.joinRoom(roomId, socket, username);
+    socket.emit("room:joined", { roomId: roomId, peer: response }); // for now the user has to ask to join the room and has to wait till the peer accepts the request
   });
-  socket.on("asktojoin",({roomId, username})=>{
-    let peer:any=null;
-     peer=userManager.getPeerDetails(roomId, socket,username);
-     console.log("Peer Details:", peer);
-     peer.emit("send-offer",{ peerSocket: socket.id });
+  socket.on("room:ask-to-join", ({ roomId, username }) => {
+    let peer: any = null;
+    peer = userManager.getPeerDetails(roomId, socket, username);
+    peer.emit("room:join-requested", { peerSocket: socket.id, username });
+  });
+ 
+
+  socket.on("webrtc:offer", ({ sdp, roomId }) => {
+    let peer: any = null;
+    peer = userManager.getPeerDetails(roomId, socket, "yashwanth");
+    peer.emit("webrtc:offer", { sdp: sdp });
   });
 
-  //  socket.on("receive-offer", ({ roomId }) => {
-  //    let peer :any=null;
-  //    peer=userManager.getPeerDetails(roomId,socket,"");
-  //    console.log("checking peer before emitting offer:", peer,typeof peer);
-  //    peer.emit("receive-offer", { roomId:roomId,socketId: socket.id });
-  // });
+  socket.on("webrtc:ice-candidate", ({ candidate, type, roomId }) => {
+    userManager.onIceCandidates(candidate, socket.id, type, roomId);
+  });
 
-   socket.on("ice-candidate",({candidate,type,roomId})=>{
-    userManager.onIceCandidates(candidate,socket.id,type,roomId);
-   })
+  socket.on("webrtc:answer", ({ sdp, roomId }) => {
+    let peer: any = null;
+    peer = userManager.getPeerDetails(roomId, socket, "");
+    peer.emit("webrtc:answer", { sdp: sdp, roomId: roomId });
+  });
 
-   socket.on("offer",({sdp,roomId})=>{
-    let peer :any=null;
-    peer=userManager.getPeerDetails(roomId,socket,"");
-    console.log("checking peer before emitting offer:", peer,typeof peer);
-    peer.emit("offer",{sdp:sdp,roomId:roomId});
-   });
-
-   socket.on("answer",({sdp,roomId})=>{
-    let peer :any=null;
-    peer=userManager.getPeerDetails(roomId,socket,"");
-    console.log("checking peer before emitting answer:", peer,typeof peer);
-    peer.emit("answer",{sdp:sdp,roomId:roomId});
-   });  
-   
-  // socket.on("send-offer", ({ peerSocket }) => {
-  //   peerSocket.emit("receive-offer", { socket: socket });
-  // });
-
-
+  
 
   socket.on("instantmatch", (username: string) => {
     // Implement instant match logic here
