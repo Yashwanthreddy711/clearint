@@ -10,13 +10,26 @@ export const Room = () => {
   const localVideoTrack = useMediaState(state => state.localVideoTrack);
   const videoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const [chatMessage,setChatMessage]=useState('');
+  const [incomingMessage,setIncomingMessage]=useState('');
+  
 
-  const sendingPcRef = useRef<RTCPeerConnection | null>(null);
-  const receivingPcRef = useRef<RTCPeerConnection | null>(null);
+
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const dataChannelRef=useRef<RTCDataChannel | null>(null);
   const userState = userRoleState(state => state.joinState);
 
   function handleHomeNavigation() {
     window.location.href = '/';
+  }
+  function handleChat(e:any){
+    setChatMessage(e.target.value);
+  }
+  function handleSendMessage(){
+    dataChannelRef.current?.send(chatMessage);
+  }
+  function handleIncomingMessage(e:any){
+     setIncomingMessage(e);
   }
 
   useEffect(() => {
@@ -37,14 +50,34 @@ export const Room = () => {
       alert(`${username},is waiting in the lobby,Do you want to admit?`); //create a popup for the host to approve or reject the joinee's request
       console.log('Host approved joinee request');
       const pc = new RTCPeerConnection();
-      console.log('Created peer connection');
-      // setSendingPc(pc);
+      pcRef.current = pc;
+
+      const dataChannel=pc.createDataChannel("chat");
+
+      pcRef.current = pc;
+     
+      dataChannel.onopen=()=>{
+        console.log("Data channel is open");
+      }
+      dataChannel.onmessage=(event)=>{
+        console.log("Received message",event.data);
+        handleIncomingMessage(event.data);
+      }
+      dataChannel.onerror=(error)=>{
+        console.log("Error in Datachannel",error);
+      }
+      dataChannel.onclose=()=>{
+        console.log("Data channel is closed");
+      }
+
+      dataChannelRef.current=dataChannel;
+
       pc.ontrack=(event)=>{
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
         }
       }
-      sendingPcRef.current = pc;
+
       if (localAudioTrack) {
         console.log('Added local audio track to the pc');
         pc.addTrack(localAudioTrack, stream);
@@ -95,11 +128,25 @@ export const Room = () => {
       console.log('Received webrtc offer from the peer :', data);
       const pc = new RTCPeerConnection();
 
+
       pc.ontrack = event => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = event.streams[0];
         }
       };
+
+      pc.ondatachannel=(event)=>{
+         const dataChannel=event.channel;
+         dataChannelRef.current=dataChannel;
+         dataChannel.onopen=()=>console.log("Data channel is Opened");
+         dataChannel.onmessage=(event)=>{
+          console.log("Message from datachannel",event.data)
+          handleIncomingMessage(event.data);
+        };
+         dataChannel.onerror=(error)=>console.log("Error in datachannel",error);
+         dataChannel.onclose=()=>console.log("Data channel closed");
+      }
+
 
       console.log('Checking remote video ref', remoteVideoRef);
 
@@ -149,15 +196,15 @@ export const Room = () => {
 
     socket.on('webrtc:answer', async (data: any) => {
       console.log('Received answer:', data);
-      await sendingPcRef.current?.setRemoteDescription(data.sdp);
+      await pcRef.current?.setRemoteDescription(data.sdp);
 
      
     });
 
     socket.on('webrtc:add-ice-candidate', async (data: any) => {
       const candidate = new RTCIceCandidate(data.sdp);
-      await sendingPcRef.current?.addIceCandidate(candidate);
-      await receivingPcRef.current?.addIceCandidate(candidate);
+      await pcRef.current?.addIceCandidate(candidate);
+      await pcRef.current?.addIceCandidate(candidate);
     });
   }, []);
   function handleAsktoJoin() {
@@ -178,6 +225,13 @@ export const Room = () => {
       ) : (
         ''
       )}
+      <div>
+        <input onChange={handleChat} placeholder='enter message'/>
+        <button onClick={handleSendMessage}>"Send Message"</button>
+      </div>
+      <div>
+        <h1>{incomingMessage}</h1>
+      </div>
       <video ref={remoteVideoRef} muted autoPlay playsInline controls={false} />
     </div>
   );
