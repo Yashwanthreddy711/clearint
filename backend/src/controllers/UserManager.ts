@@ -6,33 +6,34 @@ export interface User {
   socket: Socket;
 }
 
-export class UserManager {
-  private users: User[];
-  private queue: string[];
+export class UserManager {  
+  private queue: any=[];
   private roomManager: RoomManager;
 
   constructor() {
-    this.users = [];
     this.queue = [];
     this.roomManager = new RoomManager();
   }
-
+  pushUserToQueue(socket:Socket){
+   this.queue.push(socket); 
+   return this.instantMatchUser(socket);
+  }
+  removeUserFromQueue(socket:Socket){
+    this.queue=this.queue.filter((index:Socket) => index.id!==socket.id);
+  }
   createRoom(socket: Socket, username: string): string {
     const user: User = { name: username, socket: socket };
-    this.users.push(user);
-    // Logic to create a room using RoomManager
     return this.roomManager.createRoomForUser(socket, username);
   }
 
   joinRoom(roomId: string, socket: Socket, username: string) {
-    // Logic to join a room using RoomManager
     return this.roomManager.joinRoomForUser(roomId, socket, username);
   }
   getPeerDetails(roomId: string, socket: Socket, username: string) {
     const person1 = socket.id;
     const person2 = this.roomManager.getPeerDetailsWithRoomId(roomId, person1);
     if (person2 === null) {
-      return "Peer not found";
+      return null;
     }
     return person2;
   }
@@ -47,4 +48,26 @@ export class UserManager {
         peer.emit('webrtc:add-ice-candidate', { sdp: sdp, type: type });
       }
     } 
+
+    instantMatchUser(socket:Socket){
+      if(this.queue.length<2){
+        console.log("Not enough to make a match");
+        return null;
+      }
+      const roomId= this.roomManager.createRoomForUser(socket,'');
+      let peer = this.findRandomUser();
+      while(peer.id==socket.id){
+        peer=this.findRandomUser();
+      }
+      const user=this.roomManager.joinRoomForUser(roomId,peer,'');
+      if(user){
+        this.removeUserFromQueue(socket);
+        this.removeUserFromQueue(peer);
+      }
+      return {peer:peer,roomid:roomId};
+    }
+
+    findRandomUser(){
+      return this.queue[Math.floor(Math.random() * this.queue.length)];
+    }
 }

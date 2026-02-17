@@ -22,7 +22,7 @@ export class RoomManager {
       this.rooms.set(roomId, room);
       return room.user1?.id;
     }
-    return "Room is full or does not exist";
+    return null;
   }
   getPeerDetailsWithRoomId(roomId: string, socketId: string): Socket | null {
     const room = this.rooms.get(roomId);
