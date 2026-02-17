@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { socket } from '../utils/socket';
-import { useMediaState } from '../utils/store/useMediaState';
-import { userRoleState } from '../utils/store/userRoleState';
+import { useMediaState } from '../store/useMediaState';
+import { userRoleState } from '../store/userRoleState';
+import { useNavigate } from 'react-router-dom';
+import { Socket } from 'socket.io-client';
 
 export const Landing = () => {
-  const navigate = useNavigate();
   const [roomId, setRoomId] = React.useState('');
   const [name, setName] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const navigate =useNavigate();
 
   const getCam = async () => {
     const stream = await window.navigator.mediaDevices.getUserMedia({
@@ -40,22 +41,27 @@ export const Landing = () => {
 
   function handleCreateRoom() {
     userRoleState.getState().setUserState('host');
-    console.log('Requested to create room ');
     socket.emit('room:create', 'yashwanth');
     socket.on('room:created', (data: { roomId: string }) => {
-      console.log('Room Created with ID:', data.roomId);
       handleRoomNavigation(data.roomId);
     });
   }
 
   function handleJoinRoom() {
     userRoleState.getState().setUserState('joinee');
-    console.log('Requsted to join room');
     socket.emit('room:join-request', { roomId: roomId, username: 'yashwanth' });
     socket.on('room:joined', data => {
-      console.log('Joined Room with ID:', data.roomId);
-      handleRoomNavigation(roomId);
+      handleRoomNavigation(data.roomId);
     });
+  }
+  function handleJoinQueue(){
+    socket.emit('webrtc:join-queue-request',{username:'yashwanth'});
+    socket.on('room:joined', data => {
+      if(data.role==="caller"){
+        socket.emit('room:ask-to-join', { roomId: data.roomId, username: 'yashwanth' });
+      }
+      handleRoomNavigation(data.roomId);
+    }); 
   }
   return (
     <div className="flex flex-col gap-6">
@@ -75,6 +81,9 @@ export const Landing = () => {
           className="border-2 border-solid"
         />
         <button onClick={handleJoinRoom}>Join Room</button>
+      </div>
+      <div>
+        <button className='bg-blue-500' onClick={handleJoinQueue}>Join queue</button>
       </div>
     </div>
   );
