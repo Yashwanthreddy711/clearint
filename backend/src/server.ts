@@ -18,7 +18,6 @@ const io = new Server(server, {
 const userManager = new UserManager();
 
 io.on("connection", (socket: Socket) => {
-  console.log("user connected:", socket.id);
   socket.on("room:create", (username: string) => {
     const roomId = userManager.createRoom(socket, username);
     socket.emit("room:created", { roomId: roomId });
@@ -30,10 +29,11 @@ io.on("connection", (socket: Socket) => {
   socket.on("room:ask-to-join", ({ roomId, username }) => {
     let peer: any = null;
     peer = userManager.getPeerDetails(roomId, socket, username);
-    peer.emit("room:join-requested", { peerSocket: socket.id, username });
+    if(peer){
+      peer.emit("room:join-requested", { peerSocket: socket.id, username });
+    }
   });
  
-
   socket.on("webrtc:offer", ({ sdp, roomId }) => {
     let peer: any = null;
     peer = userManager.getPeerDetails(roomId, socket, "yashwanth");
@@ -50,12 +50,26 @@ io.on("connection", (socket: Socket) => {
     peer.emit("webrtc:answer", { sdp: sdp, roomId: roomId });
   });
 
-  
-
-  socket.on("instantmatch", (username: string) => {
+  socket.on("webrtc:join-queue-request", (username: string) => {
     // Implement instant match logic here
+    const peerObj=userManager.pushUserToQueue(socket);
+    if(peerObj){
+      const peer=peerObj.peer;
+      const roomId=peerObj.roomid;
+      socket.emit('room:joined',{
+        roomId:roomId,
+        role:"caller"});
+      peer?.emit('room:joined',{
+        roomId:roomId,
+        role:"receiver"}
+      );
+    }
+    else{
+      console.log("Peer object is null");
+    }
   });
   socket.on("disconnect", () => {
+    userManager.removeUserFromQueue(socket);
     console.log("user disconnected", socket.id);
   });
 });
