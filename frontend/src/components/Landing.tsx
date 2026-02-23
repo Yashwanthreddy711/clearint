@@ -9,7 +9,7 @@ export const Landing = () => {
   const [roomId, setRoomId] = React.useState('');
   const [name, setName] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
-  const navigate =useNavigate();
+  const navigate = useNavigate();
 
   const getCam = async () => {
     const stream = await window.navigator.mediaDevices.getUserMedia({
@@ -54,14 +54,18 @@ export const Landing = () => {
       handleRoomNavigation(data.roomId);
     });
   }
-  function handleJoinQueue(){
-    socket.emit('webrtc:join-queue-request',{username:'yashwanth'});
+  function handleJoinQueue() {
+    socket.emit('webrtc:join-queue-request', { username: 'yashwanth' });
     socket.on('room:joined', data => {
-      if(data.role==="caller"){
-        socket.emit('room:ask-to-join', { roomId: data.roomId, username: 'yashwanth' });
+      console.log('');
+      if (data.role === 'caller') {
+        socket.emit('room:ask-to-join', {
+          roomId: data.roomId,
+          username: 'yashwanth',
+        });
       }
       handleRoomNavigation(data.roomId);
-    }); 
+    });
   }
   return (
     <div className="flex flex-col gap-6">
@@ -83,7 +87,9 @@ export const Landing = () => {
         <button onClick={handleJoinRoom}>Join Room</button>
       </div>
       <div>
-        <button className='bg-blue-500' onClick={handleJoinQueue}>Join queue</button>
+        <button className="bg-blue-500" onClick={handleJoinQueue}>
+          Join queue
+        </button>
       </div>
     </div>
   );
