@@ -14,6 +14,7 @@ export const useWebRTC = () => {
     };
 
     pc.onicecandidate = async event => {
+      console.log("on ice-candidates triggered");
       if (event.candidate) {
         //send the candidate to the peer
         console.log('sending ice candidate from sender', event.candidate.type);
