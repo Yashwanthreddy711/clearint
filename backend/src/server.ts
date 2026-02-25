@@ -26,13 +26,22 @@ io.on("connection", (socket: Socket) => {
     const response = userManager.joinRoom(roomId, socket, username);
     socket.emit("room:joined", { roomId: roomId, peer: response }); // for now the user has to ask to join the room and has to wait till the peer accepts the request
   });
-  socket.on("room:ask-to-join", ({ roomId, username }) => {
+  socket.on(
+    "room:ask-to-join",
+    (
+      { roomId, username }: { roomId: string; username: string },
+      ack?: (res: { ok: boolean; reason?: string }) => void,
+    ) => {
     let peer: any = null;
     peer = userManager.getPeerDetails(roomId, socket, username);
     if(peer){
       peer.emit("room:join-requested", { peerSocket: socket.id, username });
+      ack?.({ ok: true });
+      return;
     }
-  });
+      ack?.({ ok: false, reason: "peer_not_found" });
+    },
+  );
  
   socket.on("webrtc:offer", ({ sdp, roomId }) => {
     let peer: any = null;
