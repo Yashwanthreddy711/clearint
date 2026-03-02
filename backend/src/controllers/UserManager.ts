@@ -16,7 +16,9 @@ export class UserManager {
   }
   pushUserToQueue(socket:Socket){
    this.queue.push(socket); 
-   return this.instantMatchUser(socket);
+   console.log(socket.id,"pushed to queue");
+   const res=this.instantMatchUser(socket);
+   return res;
   }
   removeUserFromQueue(socket:Socket){
     this.queue=this.queue.filter((index:Socket) => index.id!==socket.id);

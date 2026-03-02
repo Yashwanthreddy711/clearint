@@ -28,7 +28,6 @@ export const useRoomSocket = ({
     username: string,
     stream: MediaStream
   ) => {
-    alert(`${username},is waiting in the lobby,Do you want to admit?`); //create a popup for the host to approve or reject the joinee's request
     const pc = createWebRTCConnection(remoteVideoRef, roomId);
     pcRef.current = pc;
     const dataChannel = setUpDataChannel(pc, handleIncomingMessage);
@@ -49,6 +48,7 @@ export const useRoomSocket = ({
     }
 
     pc.onnegotiationneeded = async () => {
+      console.log("onnegotiationed triggered");
       const sdp = await pc.createOffer();
       await pc.setLocalDescription(sdp);
       socket.emit('webrtc:offer', {
