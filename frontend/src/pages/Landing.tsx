@@ -4,6 +4,7 @@
   import { userRoleState } from '../store/userRoleState';
   import { useNavigate } from 'react-router-dom';
   import { Video, VideoOff, Mic, MicOff, Plus, LogIn, Users, ChevronRight } from 'lucide-react';
+import { log } from '../services/log';
   
   export const Landing = () => {
     const [roomId, setRoomId] = React.useState('');
@@ -68,6 +69,7 @@
       userRoleState.getState().setUserState('host');
       socket.emit('room:create', name || 'yashwanth');
       socket.on('room:created', (data: { roomId: string }) => {
+        log("SIGNALING", "Room created", { data });
         handleRoomNavigation(data.roomId);
       });
     }
@@ -77,15 +79,16 @@
       userRoleState.getState().setUserState('joinee');
       socket.emit('room:join-request', { roomId: roomId.trim(), username: name || 'yashwanth' });
       socket.on('room:joined', (data: { roomId: string }) => {
+        log("SIGNALING", "User Joined the Room", { roomId });
         handleRoomNavigation(data.roomId);
       });
     }
   
     function handleJoinQueue() {
-      console.log("user clicked on join queue");
+      log("SIGNALING", "User clicked on join queue");
       socket.emit('webrtc:join-queue-request', { username: name || 'yashwanth' });
       socket.on('room:joined', (data: { roomId: string; role: string }) => {
-        console.log("in the room joined event emitted by the server");
+        log("SIGNALING", "User Joined the Queue", { roomId });
         userRoleState.getState().setUserState(data.role);
         handleRoomNavigation(data.roomId);
       });

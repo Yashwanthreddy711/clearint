@@ -12,6 +12,7 @@ import { AdmitModal } from '../components/Admitmodal';
 import { EndCallModal } from '../components/Endcallmodal';
 import { ChatPanel, Message } from '../components/Chatpanel';
 import { ControlBar } from '../components/Controlbar';
+import { log } from '../services/log';
 
 interface JoinRequest {
   username: string;
@@ -107,11 +108,14 @@ export const Room = () => {
     }
 
     socket.on('room:join-requested', (data: any) => {
-      console.log('in the room:join-requested event handler');
+      log("SIGNALING", "Creating Offer", { data });
       setJoinRequest({ username: data.username });
       handleSocketRoomJoinRequest(data.username, stream);
     });
-    socket.on('webrtc:offer', handleSocketOnOffer);
+    socket.on('webrtc:offer', (data)=>{
+      log("SIGNALING", "Received offer", { data });
+      handleSocketOnOffer(data,stream);
+    });
     socket.on('webrtc:answer', handleOnSocketAnswer);
     socket.on('webrtc:add-ice-candidate', handleSocketAddIceCandidates);
     // Joinee: host admitted us — clear the waiting pill
@@ -127,6 +131,7 @@ export const Room = () => {
       const tryAsk = () => {
         if (cancelled) return;
         attempts += 1;
+        log("SIGNALING", "Asking to join for queue request", { roomId });
         socket.emit(
           'room:ask-to-join',
           { roomId, username: 'yashwanth' },
@@ -154,16 +159,19 @@ export const Room = () => {
 
   // ── Control handlers ──────────────────────────────────────────────────────
   const handleToggleMute = () => {
+    log("MEDIA", "Toggle mute", { isMuted });
     if (localAudioTrack) localAudioTrack.enabled = isMuted;
     setIsMuted(p => !p);
   };
 
   const handleToggleVideo = () => {
+    log("MEDIA", "Toggle video", { isVideoOff });
     if (localVideoTrack) localVideoTrack.enabled = isVideoOff;
     setIsVideoOff(p => !p);
   };
 
   const handleToggleScreenShare = async () => {
+    log("MEDIA", "Toggle screen share", { isScreenSharing });
     if (isScreenSharing) {
       setIsScreenSharing(false);
       // TODO: revert to camera track in peer connection
@@ -182,6 +190,7 @@ export const Room = () => {
   };
 
   const handleSendMessage = (text: string) => {
+    log("DATA", "Sending message", { text });
     dataChannelRef.current?.send(text);
     const msg: Message = {
       id: crypto.randomUUID(),
@@ -192,17 +201,20 @@ export const Room = () => {
     setMessages(prev => [...prev, msg]);
   };
 
-  const handleOpenChat = () => {
+  const handleOpenChat = () => {  
+    log("DATA", "Opening chat");
     setIsChatOpen(true);
     setUnreadCount(0);
   };
 
-  const handleAskToJoin = () => {
+  const handleAskToJoin = () => { 
+    log("SIGNALING", "Asking to join", { roomId });
     socket.emit('room:ask-to-join', { roomId, username: 'yashwanth' });
     setHasSentJoinRequest(true);
   };
 
-  const handleCopyRoomId = () => {
+  const handleCopyRoomId = () => {  
+    log("DATA", "Copying room id", { roomId });
     if (roomId) {
       navigator.clipboard.writeText(String(roomId));
       setRoomIdCopied(true);
@@ -210,7 +222,8 @@ export const Room = () => {
     }
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = () => { 
+    log("SIGNALING", "Ending call", { roomId });
     pcRef.current?.close();
     helper.handleHomeNavigation();
   };

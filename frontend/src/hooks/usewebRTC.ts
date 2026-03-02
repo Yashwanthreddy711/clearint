@@ -1,3 +1,4 @@
+import { log } from '../services/log';
 import { socket } from '../utils/socket';
 
 export const useWebRTC = () => {
@@ -7,22 +8,37 @@ export const useWebRTC = () => {
   ) => {
     const pc = new RTCPeerConnection();
     pc.ontrack = event => {
-      console.log('Received remote tracks', remoteVideoRef);
+      log("MEDIA", "Received remote tracks", { event });
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
     pc.onicecandidate = async event => {
-      console.log("on ice-candidates triggered");
+      log("WEBRTC", "on ice-candidates triggered");
       if (event.candidate) {
         //send the candidate to the peer
-        console.log('sending ice candidate from sender', event.candidate.type);
+        log("WEBRTC", "Sending ice candidate from sender", { event });
         socket.emit('webrtc:ice-candidate', {
           candidate: event.candidate,
           roomId: roomId,
         });
       }
+      pc.onconnectionstatechange = event => {
+        const pc = event.target as RTCPeerConnection;
+        log("WEBRTC", "Connection state changed", pc.connectionState);
+      };
+      pc.oniceconnectionstatechange = event => {
+        const pc = event.target as RTCPeerConnection;
+        log("WEBRTC", "Ice connection state changed", pc.connectionState);
+      };
+      pc.onicegatheringstatechange = event => {
+        const pc = event.target as RTCPeerConnection;
+        log("WEBRTC", "Ice gathering state changed", pc.connectionState);
+      };
+      pc.onicecandidateerror = event => {
+        log("WEBRTC", "Ice candidate error", { event });
+      };
     };
     return pc;
   };
@@ -32,16 +48,16 @@ export const useWebRTC = () => {
   ) => {
     const dataChannel = pc.createDataChannel('chat');
     dataChannel.onopen = () => {
-      console.log('Data channel is open');
+      log("DATA", "Data channel is open");
     };
     dataChannel.onerror = error => {
-      console.log('Error in Datachannel', error);
+      log("DATA", "Error in Datachannel", { error });
     };
     dataChannel.onclose = () => {
-      console.log('Data channel is closed');
+      log("DATA", "Data channel is closed");
     };
     dataChannel.onmessage = event => {
-      console.log('Received message', event.data);
+      log("DATA", "Received message", { event });
       handleIncomingMessage(event.data);
     };
 
