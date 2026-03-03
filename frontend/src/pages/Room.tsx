@@ -28,6 +28,7 @@ export const Room = () => {
   // video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const screenShareRef :any = useRef<HTMLVideoElement | null>(null);
 
   // webrtc refs
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -172,22 +173,61 @@ export const Room = () => {
 
   const handleToggleScreenShare = async () => {
     log("MEDIA", "Toggle screen share", { isScreenSharing });
-    if (isScreenSharing) {
-      setIsScreenSharing(false);
-      // TODO: revert to camera track in peer connection
-      return;
+    if(isScreenSharing){
+      stopScreenShare();
     }
-    try {
-      const screen = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
-      // TODO: replace video track in RTCPeerConnection sender
-      setIsScreenSharing(true);
-      screen.getVideoTracks()[0].onended = () => setIsScreenSharing(false);
-    } catch {
-      /* user cancelled */
+    else{
+    const screenStream=await navigator.mediaDevices.getDisplayMedia({
+      video:true
+    })
+    setIsScreenSharing(true);
+    const screenTrack = screenStream.getVideoTracks()[0];
+    screenShareRef.current = screenTrack;
+  
+    const sender = pcRef.current
+      ?.getSenders()
+      .find(s => s.track?.kind === "video");
+  
+    if (sender) {
+      await sender.replaceTrack(screenTrack);
     }
+  
+    // Optional: show locally
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = screenStream;
+    }
+  
+    // When user clicks "Stop Sharing" from browser UI
+    screenTrack.onended = () => {
+      stopScreenShare();
+    };
+  }
   };
+
+  async function stopScreenShare(){
+    // const cameraTrack = localStreamRef.current
+    // ?.getVideoTracks()[0];
+    setIsScreenSharing(false);
+  const sender = pcRef.current
+    ?.getSenders()
+    .find(s => s.track?.kind === "video");
+
+  if (sender && localVideoTrack) {
+    await sender.replaceTrack(localVideoTrack);
+  }
+
+  // Show camera locally again
+  const stream = new MediaStream();
+  if (localAudioTrack) stream.addTrack(localAudioTrack);
+  if (localVideoTrack) stream.addTrack(localVideoTrack);
+  
+  if (localVideoRef.current) {
+    localVideoRef.current.srcObject = stream;
+  }
+
+  // Stop screen capture completely
+  screenShareRef.current?.stop();
+  }
 
   const handleSendMessage = (text: string) => {
     log("DATA", "Sending message", { text });

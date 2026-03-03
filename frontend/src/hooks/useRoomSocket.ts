@@ -65,6 +65,9 @@ export const useRoomSocket = ({
   const handleSocketOnOffer = async (data: any,stream: MediaStream) => {
     log("SIGNALING", "Received offer", { data });
     const pc = createWebRTCConnection(remoteVideoRef, roomId);
+    // Store the peer connection so other parts of the app (e.g. screen share)
+    // can access it via pcRef.current
+    pcRef.current = pc;
     pc.ontrack = (event: any) => {
       log("MEDIA", "Received remote tracks", { event });
       if (remoteVideoRef.current) {
