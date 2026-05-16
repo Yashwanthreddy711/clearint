@@ -42,7 +42,21 @@ io.on("connection", (socket: Socket) => {
       ack?.({ ok: false, reason: "peer_not_found" });
     },
   );
- 
+
+  socket.on("room:admit", ({ peerSocketId }: { peerSocketId: string }) => {
+    const peerSocket = io.sockets.sockets.get(peerSocketId);
+    if (peerSocket) {
+      peerSocket.emit("room:admitted");
+    }
+  });
+
+  socket.on("room:deny", ({ peerSocketId }: { peerSocketId: string }) => {
+    const peerSocket = io.sockets.sockets.get(peerSocketId);
+    if (peerSocket) {
+      peerSocket.emit("room:denied");
+    }
+  });
+
   socket.on("webrtc:offer", ({ sdp, roomId }) => {
     let peer: any = null;
     peer = userManager.getPeerDetails(roomId, socket, "yashwanth");
