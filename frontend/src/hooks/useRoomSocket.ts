@@ -1,4 +1,5 @@
 import { Socket } from 'socket.io-client';
+import { log } from '../services/log';
 
 interface UseRoomSocketProps {
   socket: Socket;
@@ -28,6 +29,7 @@ export const useRoomSocket = ({
     username: string,
     stream: MediaStream
   ) => {
+
     const pc = createWebRTCConnection(remoteVideoRef, roomId);
     pcRef.current = pc;
     const dataChannel = setUpDataChannel(pc, handleIncomingMessage);
@@ -35,6 +37,7 @@ export const useRoomSocket = ({
     dataChannelRef.current = dataChannel;
 
     pc.ontrack = (event: any) => {
+      log("MEDIA", "Received remote tracks", { event });
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
@@ -48,9 +51,10 @@ export const useRoomSocket = ({
     }
 
     pc.onnegotiationneeded = async () => {
-      console.log("onnegotiationed triggered");
+      log("WEBRTC", "onnegotiationed triggered");
       const sdp = await pc.createOffer();
       await pc.setLocalDescription(sdp);
+      log("WEBRTC", "Sending offer", { sdp });
       socket.emit('webrtc:offer', {
         sdp: sdp,
         roomId: roomId,
@@ -58,39 +62,45 @@ export const useRoomSocket = ({
     };
   };
 
-  const handleSocketOnOffer = async (data: any) => {
+  const handleSocketOnOffer = async (data: any,stream: MediaStream) => {
+    log("SIGNALING", "Received offer", { data });
     const pc = createWebRTCConnection(remoteVideoRef, roomId);
+    // Store the peer connection so other parts of the app (e.g. screen share)
+    // can access it via pcRef.current
+    pcRef.current = pc;
     pc.ontrack = (event: any) => {
+      log("MEDIA", "Received remote tracks", { event });
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
     pc.ondatachannel = (event: any) => {
+      log("DATA", "Received data channel", { event });
       const dataChannel = event.channel;
       dataChannelRef.current = dataChannel;
-      dataChannel.onopen = () => console.log('Data channel is Opened');
+      dataChannel.onopen = () => log("SIGNALING", "Data channel is Opened");
       dataChannel.onmessage = (event: any) => {
-        console.log('Message from datachannel', event.data);
+        log("DATA", "Message from datachannel", { event });
         handleIncomingMessage(event.data);
       };
       dataChannel.onerror = (error: any) =>
-        console.log('Error in datachannel', error);
-      dataChannel.onclose = () => console.log('Data channel closed');
+        log("DATA", "Error in datachannel", { error });
+      dataChannel.onclose = () => log("SIGNALING", "Data channel closed");
     };
 
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    log("SIGNALING", "Set remote description", { data });
 
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
-
-    localStream.getTracks().forEach(track => {
-      pc.addTrack(track, localStream);
-    });
+    if (localAudioTrack) {
+      pc.addTrack(localAudioTrack, stream);
+    }
+    if (localVideoTrack) {
+      pc.addTrack(localVideoTrack, stream);
+    }
 
     const sdp = await pc?.createAnswer();
+    log("SIGNALING", "Created answer", { sdp });
     await pc?.setLocalDescription(sdp);
 
     socket.emit('webrtc:answer', {
@@ -100,10 +110,12 @@ export const useRoomSocket = ({
   };
 
   const handleOnSocketAnswer = async (data: any) => {
+    log("SIGNALING", "Received answer", { data });
     await pcRef.current?.setRemoteDescription(data.sdp);
   };
 
   const handleSocketAddIceCandidates = async (data: any) => {
+    log("SIGNALING", "Received ice candidates", { data });
     const candidate = new RTCIceCandidate(data.sdp);
     await pcRef.current?.addIceCandidate(candidate);
   };

@@ -12,9 +12,11 @@ import { AdmitModal } from '../components/Admitmodal';
 import { EndCallModal } from '../components/Endcallmodal';
 import { ChatPanel, Message } from '../components/Chatpanel';
 import { ControlBar } from '../components/Controlbar';
+import { log } from '../services/log';
 
 interface JoinRequest {
   username: string;
+  peerSocket: string;
 }
 
 export const Room = () => {
@@ -23,10 +25,14 @@ export const Room = () => {
   const localVideoTrack = useMediaState(s => s.localVideoTrack);
   const userState = userRoleState(s => s.joinState);
   const helper = new Helper();
+  const needsAdmission = userState === 'joinee' || userState === 'caller';
 
   // video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const screenShareRef :any = useRef<HTMLVideoElement | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const isAdmittedRef = useRef(!needsAdmission);
 
   // webrtc refs
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -105,18 +111,30 @@ export const Room = () => {
       localVideoRef.current.srcObject = stream;
       localVideoRef.current.play().catch(() => {});
     }
+    localStreamRef.current = stream;
 
-    socket.on('room:join-requested', (data: any) => {
-      console.log('in the room:join-requested event handler');
-      setJoinRequest({ username: data.username });
-      handleSocketRoomJoinRequest(data.username, stream);
+    socket.on('room:join-requested', (data: { username: string; peerSocket: string }) => {
+      log("SIGNALING", "Join request received", { data });
+      setJoinRequest({ username: data.username, peerSocket: data.peerSocket });
     });
-    socket.on('webrtc:offer', handleSocketOnOffer);
+    socket.on('webrtc:offer', (data)=>{
+      if (needsAdmission && !isAdmittedRef.current) {
+        log("SIGNALING", "Ignoring offer — not admitted yet", { data });
+        return;
+      }
+      log("SIGNALING", "Received offer", { data });
+      handleSocketOnOffer(data,stream);
+    });
     socket.on('webrtc:answer', handleOnSocketAnswer);
     socket.on('webrtc:add-ice-candidate', handleSocketAddIceCandidates);
-    // Joinee: host admitted us — clear the waiting pill
     socket.on('room:admitted', () => {
+      isAdmittedRef.current = true;
       setIsAdmitted(true);
+      setHasSentJoinRequest(false);
+    });
+    socket.on('room:denied', () => {
+      isAdmittedRef.current = false;
+      setIsAdmitted(false);
       setHasSentJoinRequest(false);
     });
 
@@ -127,6 +145,7 @@ export const Room = () => {
       const tryAsk = () => {
         if (cancelled) return;
         attempts += 1;
+        log("SIGNALING", "Asking to join for queue request", { roomId });
         socket.emit(
           'room:ask-to-join',
           { roomId, username: 'yashwanth' },
@@ -149,39 +168,98 @@ export const Room = () => {
       socket.off('webrtc:answer');
       socket.off('webrtc:add-ice-candidate');
       socket.off('room:admitted');
+      socket.off('room:denied');
     };
   }, []);
 
+  const handleAdmitJoin = () => {
+    if (!joinRequest || !localStreamRef.current) return;
+    log("SIGNALING", "Admitting join request", { joinRequest });
+    socket.emit('room:admit', { peerSocketId: joinRequest.peerSocket });
+    handleSocketRoomJoinRequest(joinRequest.username, localStreamRef.current);
+    setJoinRequest(null);
+  };
+
+  const handleDenyJoin = () => {
+    if (!joinRequest) return;
+    log("SIGNALING", "Denying join request", { joinRequest });
+    socket.emit('room:deny', { peerSocketId: joinRequest.peerSocket });
+    setJoinRequest(null);
+  };
+
   // ── Control handlers ──────────────────────────────────────────────────────
   const handleToggleMute = () => {
+    log("MEDIA", "Toggle mute", { isMuted });
     if (localAudioTrack) localAudioTrack.enabled = isMuted;
     setIsMuted(p => !p);
   };
 
   const handleToggleVideo = () => {
+    log("MEDIA", "Toggle video", { isVideoOff });
     if (localVideoTrack) localVideoTrack.enabled = isVideoOff;
     setIsVideoOff(p => !p);
   };
 
   const handleToggleScreenShare = async () => {
-    if (isScreenSharing) {
-      setIsScreenSharing(false);
-      // TODO: revert to camera track in peer connection
-      return;
+    log("MEDIA", "Toggle screen share", { isScreenSharing });
+    if(isScreenSharing){
+      stopScreenShare();
     }
-    try {
-      const screen = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
-      // TODO: replace video track in RTCPeerConnection sender
-      setIsScreenSharing(true);
-      screen.getVideoTracks()[0].onended = () => setIsScreenSharing(false);
-    } catch {
-      /* user cancelled */
+    else{
+    const screenStream=await navigator.mediaDevices.getDisplayMedia({
+      video:true
+    })
+    setIsScreenSharing(true);
+    const screenTrack = screenStream.getVideoTracks()[0];
+    screenShareRef.current = screenTrack;
+  
+    const sender = pcRef.current
+      ?.getSenders()
+      .find(s => s.track?.kind === "video");
+  
+    if (sender) {
+      await sender.replaceTrack(screenTrack);
     }
+  
+    // Optional: show locally
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = screenStream;
+    }
+  
+    // When user clicks "Stop Sharing" from browser UI
+    screenTrack.onended = () => {
+      stopScreenShare();
+    };
+  }
   };
 
+  async function stopScreenShare(){
+    // const cameraTrack = localStreamRef.current
+    // ?.getVideoTracks()[0];
+    setIsScreenSharing(false);
+  const sender = pcRef.current
+    ?.getSenders()
+    .find(s => s.track?.kind === "video");
+
+  if (sender && localVideoTrack) {
+    await sender.replaceTrack(localVideoTrack);
+  }
+
+  // Show camera locally again
+  const stream = new MediaStream();
+  if (localAudioTrack) stream.addTrack(localAudioTrack);
+  if (localVideoTrack) stream.addTrack(localVideoTrack);
+  
+  if (localVideoRef.current) {
+    localVideoRef.current.srcObject = stream;
+  }
+
+  // Stop screen capture completely
+  screenShareRef.current?.stop();
+  }
+
   const handleSendMessage = (text: string) => {
+    log("DATA", "Sending message", { text });
     dataChannelRef.current?.send(text);
     const msg: Message = {
       id: crypto.randomUUID(),
@@ -192,17 +270,20 @@ export const Room = () => {
     setMessages(prev => [...prev, msg]);
   };
 
-  const handleOpenChat = () => {
+  const handleOpenChat = () => {  
+    log("DATA", "Opening chat");
     setIsChatOpen(true);
     setUnreadCount(0);
   };
 
-  const handleAskToJoin = () => {
+  const handleAskToJoin = () => { 
+    log("SIGNALING", "Asking to join", { roomId });
     socket.emit('room:ask-to-join', { roomId, username: 'yashwanth' });
     setHasSentJoinRequest(true);
   };
 
-  const handleCopyRoomId = () => {
+  const handleCopyRoomId = () => {  
+    log("DATA", "Copying room id", { roomId });
     if (roomId) {
       navigator.clipboard.writeText(String(roomId));
       setRoomIdCopied(true);
@@ -210,7 +291,8 @@ export const Room = () => {
     }
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = () => { 
+    log("SIGNALING", "Ending call", { roomId });
     pcRef.current?.close();
     helper.handleHomeNavigation();
   };
@@ -374,8 +456,8 @@ export const Room = () => {
       {joinRequest && (
         <AdmitModal
           username={joinRequest.username}
-          onAdmit={() => setJoinRequest(null)}
-          onDeny={() => setJoinRequest(null)}
+          onAdmit={handleAdmitJoin}
+          onDeny={handleDenyJoin}
         />
       )}
 
