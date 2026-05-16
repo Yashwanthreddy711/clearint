@@ -16,6 +16,7 @@ import { log } from '../services/log';
 
 interface JoinRequest {
   username: string;
+  peerSocket: string;
 }
 
 export const Room = () => {
@@ -24,11 +25,14 @@ export const Room = () => {
   const localVideoTrack = useMediaState(s => s.localVideoTrack);
   const userState = userRoleState(s => s.joinState);
   const helper = new Helper();
+  const needsAdmission = userState === 'joinee' || userState === 'caller';
 
   // video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const screenShareRef :any = useRef<HTMLVideoElement | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const isAdmittedRef = useRef(!needsAdmission);
 
   // webrtc refs
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -107,21 +111,30 @@ export const Room = () => {
       localVideoRef.current.srcObject = stream;
       localVideoRef.current.play().catch(() => {});
     }
+    localStreamRef.current = stream;
 
-    socket.on('room:join-requested', (data: any) => {
-      log("SIGNALING", "Creating Offer", { data });
-      setJoinRequest({ username: data.username });
-      handleSocketRoomJoinRequest(data.username, stream);
+    socket.on('room:join-requested', (data: { username: string; peerSocket: string }) => {
+      log("SIGNALING", "Join request received", { data });
+      setJoinRequest({ username: data.username, peerSocket: data.peerSocket });
     });
     socket.on('webrtc:offer', (data)=>{
+      if (needsAdmission && !isAdmittedRef.current) {
+        log("SIGNALING", "Ignoring offer — not admitted yet", { data });
+        return;
+      }
       log("SIGNALING", "Received offer", { data });
       handleSocketOnOffer(data,stream);
     });
     socket.on('webrtc:answer', handleOnSocketAnswer);
     socket.on('webrtc:add-ice-candidate', handleSocketAddIceCandidates);
-    // Joinee: host admitted us — clear the waiting pill
     socket.on('room:admitted', () => {
+      isAdmittedRef.current = true;
       setIsAdmitted(true);
+      setHasSentJoinRequest(false);
+    });
+    socket.on('room:denied', () => {
+      isAdmittedRef.current = false;
+      setIsAdmitted(false);
       setHasSentJoinRequest(false);
     });
 
@@ -155,8 +168,24 @@ export const Room = () => {
       socket.off('webrtc:answer');
       socket.off('webrtc:add-ice-candidate');
       socket.off('room:admitted');
+      socket.off('room:denied');
     };
   }, []);
+
+  const handleAdmitJoin = () => {
+    if (!joinRequest || !localStreamRef.current) return;
+    log("SIGNALING", "Admitting join request", { joinRequest });
+    socket.emit('room:admit', { peerSocketId: joinRequest.peerSocket });
+    handleSocketRoomJoinRequest(joinRequest.username, localStreamRef.current);
+    setJoinRequest(null);
+  };
+
+  const handleDenyJoin = () => {
+    if (!joinRequest) return;
+    log("SIGNALING", "Denying join request", { joinRequest });
+    socket.emit('room:deny', { peerSocketId: joinRequest.peerSocket });
+    setJoinRequest(null);
+  };
 
   // ── Control handlers ──────────────────────────────────────────────────────
   const handleToggleMute = () => {
@@ -427,8 +456,8 @@ export const Room = () => {
       {joinRequest && (
         <AdmitModal
           username={joinRequest.username}
-          onAdmit={() => setJoinRequest(null)}
-          onDeny={() => setJoinRequest(null)}
+          onAdmit={handleAdmitJoin}
+          onDeny={handleDenyJoin}
         />
       )}
 
