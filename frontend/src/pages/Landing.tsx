@@ -2,19 +2,39 @@
   import { socket } from '../utils/socket';
   import { useMediaState } from '../store/useMediaState';
   import { userRoleState } from '../store/userRoleState';
+  import { useAuthStore } from '../store/authStore';
+  import { logout as logoutApi } from '../api/auth';
   import { useNavigate } from 'react-router-dom';
-  import { Video, VideoOff, Mic, MicOff, Plus, LogIn, Users, ChevronRight } from 'lucide-react';
+  import { Video, VideoOff, Mic, MicOff, Plus, LogIn, Users, ChevronRight, LogOut } from 'lucide-react';
 import { log } from '../services/log';
   
   export const Landing = () => {
+    const user = useAuthStore((s) => s.user);
+    const clearAuth = useAuthStore((s) => s.clearAuth);
+    const navigate = useNavigate();
     const [roomId, setRoomId] = React.useState('');
-    const [name, setName] = useState('');
+    const [name, setName] = useState(user?.username ?? '');
     const [isCamReady, setIsCamReady] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [activeTab, setActiveTab] = useState<'join' | 'queue'>('join');
     const videoRef = useRef<HTMLVideoElement>(null);
-    const navigate = useNavigate();
+    useEffect(() => {
+      if (user?.username && !name) {
+        setName(user.username);
+      }
+    }, [user?.username]);
+
+    const displayName = name.trim() || user?.username || 'Guest';
+
+    async function handleLogout() {
+      try {
+        await logoutApi();
+      } finally {
+        clearAuth();
+        navigate('/login', { replace: true });
+      }
+    }
   
     const localVideoTrack = useRef<MediaStreamTrack | null>(null);
     const localAudioTrack = useRef<MediaStreamTrack | null>(null);
@@ -67,7 +87,7 @@ import { log } from '../services/log';
   
     function handleCreateRoom() {
       userRoleState.getState().setUserState('host');
-      socket.emit('room:create', name || 'yashwanth');
+      socket.emit('room:create', displayName);
       socket.on('room:created', (data: { roomId: string }) => {
         log("SIGNALING", "Room created", { data });
         handleRoomNavigation(data.roomId);
@@ -77,7 +97,7 @@ import { log } from '../services/log';
     function handleJoinRoom() {
       if (!roomId.trim()) return;
       userRoleState.getState().setUserState('joinee');
-      socket.emit('room:join-request', { roomId: roomId.trim(), username: name || 'yashwanth' });
+      socket.emit('room:join-request', { roomId: roomId.trim(), username: displayName });
       socket.on('room:joined', (data: { roomId: string }) => {
         log("SIGNALING", "User Joined the Room", { roomId });
         handleRoomNavigation(data.roomId);
@@ -86,7 +106,7 @@ import { log } from '../services/log';
   
     function handleJoinQueue() {
       log("SIGNALING", "User clicked on join queue");
-      socket.emit('webrtc:join-queue-request', { username: name || 'yashwanth' });
+      socket.emit('webrtc:join-queue-request', { username: displayName });
       socket.on('room:joined', (data: { roomId: string; role: string }) => {
         log("SIGNALING", "User Joined the Queue", { roomId });
         userRoleState.getState().setUserState(data.role);
@@ -111,6 +131,19 @@ import { log } from '../services/log';
           .fade-up-4 { animation: fadeUp 0.4s 0.28s ease both; }
         `}</style>
   
+        <div className="absolute top-6 right-6 fade-up flex items-center gap-3">
+          {user && (
+            <span className="text-zinc-400 text-sm hidden sm:inline">{user.email}</span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-2 text-zinc-400 hover:text-white text-xs rounded-lg border border-zinc-800 hover:border-zinc-600 transition-colors"
+          >
+            <LogOut size={14} />
+            Log out
+          </button>
+        </div>
+
         <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-8 items-center lg:items-start">
   
           {/* ── Left: Video preview ──────────────────────────────────────── */}
