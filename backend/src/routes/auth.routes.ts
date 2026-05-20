@@ -1,25 +1,18 @@
 import { Router } from "express";
-
+import { logout, refreshAccessToken, register } from "../controllers/authController";
+import { login } from "../controllers/authController";
 const router = Router();
 
 // register
-router.post("/register", (req, res) => {
-  res.json({ message: "register route working" });
-});
+router.post("/register", register);
 
 // login
-router.post("/login", (req, res) => {
-  res.json({ message: "login route working" });
-});
+router.post("/login", login);
 
 // refresh
-router.post("/refresh", (req, res) => {
-  res.json({ message: "refresh route working" });
-});
+router.post("/refresh", refreshAccessToken);
 
 // logout
-router.post("/logout", (req, res) => {
-  res.json({ message: "logout route working" });
-});
+router.post("/logout", logout);
 
 export default router;
