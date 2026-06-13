@@ -30,6 +30,8 @@ export const useRoomSocket = ({
     stream: MediaStream
   ) => {
 
+    console.log("handleSocketRoomJoinRequest", username, stream);
+
     const pc = createWebRTCConnection(remoteVideoRef, roomId);
     pcRef.current = pc;
     const dataChannel = setUpDataChannel(pc, handleIncomingMessage);
