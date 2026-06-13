@@ -1,19 +1,23 @@
 import { Socket } from "socket.io";
-import express from "express";
+import app from "./app";
 import { UserManager } from "./controllers/UserManager";
-import cors from "cors";
 const http = require("http");
 const { Server } = require("socket.io");
-
-const app = express();
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
-  },
+    origin: [
+      "http://localhost:5173",
+      "https://your-frontend.vercel.app"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
+
+
 
 const userManager = new UserManager();
 
@@ -95,10 +99,6 @@ io.on("connection", (socket: Socket) => {
     userManager.removeUserFromQueue(socket);
     console.log("user disconnected", socket.id);
   });
-});
-
-app.get("/", (req, res) => {
-  res.send("Server is running on port 3000");
 });
 
 const PORT = process.env.PORT || 3000;

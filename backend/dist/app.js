@@ -12,6 +12,8 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(body_parser_1.default.json());
+const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
+app.use("/api/auth", auth_routes_1.default);
 // Example route
 app.get('/', (_req, res) => {
     res.send('API is running...');

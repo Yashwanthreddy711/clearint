@@ -1,12 +1,89 @@
 "use strict";
-// src/server.ts
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const app_1 = __importDefault(require("./app"));
-const PORT = process.env.PORT || 5000;
-app_1.default.listen(PORT, () => {
+const UserManager_1 = require("./controllers/UserManager");
+const http = require("http");
+const { Server } = require("socket.io");
+const server = http.createServer(app_1.default);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+    },
+});
+const userManager = new UserManager_1.UserManager();
+io.on("connection", (socket) => {
+    socket.on("room:create", (username) => {
+        const roomId = userManager.createRoom(socket, username);
+        socket.emit("room:created", { roomId: roomId });
+    });
+    socket.on("room:join-request", ({ roomId, username }) => {
+        const response = userManager.joinRoom(roomId, socket, username);
+        socket.emit("room:joined", { roomId: roomId, peer: response }); // for now the user has to ask to join the room and has to wait till the peer accepts the request
+    });
+    socket.on("room:ask-to-join", ({ roomId, username }, ack) => {
+        let peer = null;
+        peer = userManager.getPeerDetails(roomId, socket, username);
+        if (peer) {
+            peer.emit("room:join-requested", { peerSocket: socket.id, username });
+            ack?.({ ok: true });
+            return;
+        }
+        ack?.({ ok: false, reason: "peer_not_found" });
+    });
+    socket.on("room:admit", ({ peerSocketId }) => {
+        const peerSocket = io.sockets.sockets.get(peerSocketId);
+        if (peerSocket) {
+            peerSocket.emit("room:admitted");
+        }
+    });
+    socket.on("room:deny", ({ peerSocketId }) => {
+        const peerSocket = io.sockets.sockets.get(peerSocketId);
+        if (peerSocket) {
+            peerSocket.emit("room:denied");
+        }
+    });
+    socket.on("webrtc:offer", ({ sdp, roomId }) => {
+        let peer = null;
+        peer = userManager.getPeerDetails(roomId, socket, "yashwanth");
+        peer.emit("webrtc:offer", { sdp: sdp });
+    });
+    socket.on("webrtc:ice-candidate", ({ candidate, type, roomId }) => {
+        userManager.onIceCandidates(candidate, socket.id, type, roomId);
+    });
+    socket.on("webrtc:answer", ({ sdp, roomId }) => {
+        let peer = null;
+        peer = userManager.getPeerDetails(roomId, socket, "");
+        peer.emit("webrtc:answer", { sdp: sdp, roomId: roomId });
+    });
+    socket.on("webrtc:join-queue-request", (username) => {
+        // Implement instant match logic here
+        const peerObj = userManager.pushUserToQueue(socket);
+        if (peerObj) {
+            const peer = peerObj.peer;
+            const roomId = peerObj.roomid;
+            socket.emit('room:joined', {
+                roomId: roomId,
+                role: "caller"
+            });
+            peer?.emit('room:joined', {
+                roomId: roomId,
+                role: "receiver"
+            });
+        }
+        else {
+            console.log("Peer object is null");
+        }
+    });
+    socket.on("disconnect", () => {
+        userManager.removeUserFromQueue(socket);
+        console.log("user disconnected", socket.id);
+    });
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 //# sourceMappingURL=server.js.map
