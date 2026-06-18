@@ -7,6 +7,10 @@ import { hashToken } from "../utils/hash";
 import { loginSchema } from "../validators/auth.validator";
 import { comparePassword } from "../utils/password";
 import jwt from "jsonwebtoken";
+import {
+  REFRESH_TOKEN_MAX_AGE_MS,
+  refreshTokenCookieOptions,
+} from "../utils/cookieOptions";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -54,28 +58,22 @@ export const register = async (req: Request, res: Response) => {
     // generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
-    const refreshTokenExpiryDays = 30;
-    const refreshTokenExpiryMs =
-      refreshTokenExpiryDays * 24 * 60 * 60 * 1000;
-
     // store refresh token in db (hashed)
     await prisma.userRefreshToken.create({
       data: {
         userId: user.id,
         tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + refreshTokenExpiryMs),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
         ipAddress: req.ip || null,
         userAgent: req.headers["user-agent"] || null,
       },
     });
 
-    // set refresh token in cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie(
+      "refreshToken",
+      refreshToken,
+      refreshTokenCookieOptions()
+    );
 
     return res.status(201).json({
       message: "User registered successfully",
@@ -136,16 +134,12 @@ export const login = async (req: Request, res: Response) => {
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
-    const refreshTokenExpiryDays = 30;
-    const refreshTokenExpiryMs =
-      refreshTokenExpiryDays * 24 * 60 * 60 * 1000;
-
     // store refresh token hash in DB
     await prisma.userRefreshToken.create({
       data: {
         userId: user.id,
         tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + refreshTokenExpiryMs),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
         ipAddress: req.ip || null,
         userAgent: req.headers["user-agent"] || null,
       },
@@ -159,13 +153,11 @@ export const login = async (req: Request, res: Response) => {
       },
     });
 
-    // set refresh token cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: refreshTokenExpiryMs,
-    });
+    res.cookie(
+      "refreshToken",
+      refreshToken,
+      refreshTokenCookieOptions()
+    );
 
     return res.status(200).json({
       message: "Login successful",
@@ -226,10 +218,6 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     const newRefreshToken = generateRefreshToken(userId);
     const newRefreshHash = hashToken(newRefreshToken);
 
-    const refreshTokenExpiryDays = 30;
-    const refreshTokenExpiryMs =
-      refreshTokenExpiryDays * 24 * 60 * 60 * 1000;
-
     // invalidate old token
     await prisma.userRefreshToken.update({
       where: { id: storedToken.id },
@@ -244,19 +232,17 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       data: {
         userId,
         tokenHash: newRefreshHash,
-        expiresAt: new Date(Date.now() + refreshTokenExpiryMs),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
         ipAddress: req.ip || null,
         userAgent: req.headers["user-agent"] || null,
       },
     });
 
-    // set new refresh token cookie
-    res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: refreshTokenExpiryMs,
-    });
+    res.cookie(
+      "refreshToken",
+      newRefreshToken,
+      refreshTokenCookieOptions()
+    );
 
     return res.status(200).json({
       message: "Token refreshed successfully",
@@ -274,11 +260,7 @@ export const logout = async (req: Request, res: Response) => {
 
     // even if token missing, clear cookie anyway
     if (!refreshToken) {
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
+      res.clearCookie("refreshToken", refreshTokenCookieOptions());
 
       return res.status(200).json({ message: "Logged out successfully" });
     }
@@ -297,12 +279,7 @@ export const logout = async (req: Request, res: Response) => {
       },
     });
 
-    // clear cookie
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
+    res.clearCookie("refreshToken", refreshTokenCookieOptions());
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
