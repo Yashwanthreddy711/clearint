@@ -156,7 +156,6 @@ import { log } from '../services/log';
                 <video
                   ref={videoRef}
                   autoPlay
-                  muted
                   playsInline
                   className={`w-full h-full object-cover transition-opacity duration-300 ${
                     isVideoOff || !isCamReady ? 'opacity-0 absolute inset-0' : 'opacity-100'

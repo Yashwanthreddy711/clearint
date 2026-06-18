@@ -31,7 +31,6 @@ export const VideoCard = ({
         ref={videoRef}
         autoPlay
         playsInline
-        muted
         controls={false}
         className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoOff ? 'opacity-0 absolute inset-0' : 'opacity-100'}`}
       />
