@@ -18,16 +18,15 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       user: null,
       isInitialized: false,
-      setAuth: (accessToken, user) => set({ accessToken, user }),
+      setAuth: (accessToken) => set({ accessToken }),
       setAccessToken: (accessToken) => set({ accessToken }),
-      clearAuth: () => set({ accessToken: null, user: null }),
+      clearAuth: () => set({ accessToken: null }),
       setInitialized: (isInitialized) => set({ isInitialized }),
     }),
     {
       name: 'clearint-auth',
       partialize: (state) => ({
         accessToken: state.accessToken,
-        user: state.user,
       }),
     }
   )
