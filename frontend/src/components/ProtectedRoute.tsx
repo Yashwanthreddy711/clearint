@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { accessToken, isInitialized } = useAuthStore();
+  const { user, isInitialized } = useAuthStore();
   const location = useLocation();
 
   if (!isInitialized) {
@@ -17,7 +17,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!accessToken) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

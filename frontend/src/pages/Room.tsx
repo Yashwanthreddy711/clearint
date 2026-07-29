@@ -137,6 +137,11 @@ export const Room = () => {
       setIsAdmitted(false);
       setHasSentJoinRequest(false);
     });
+    socket.on('room:peer-left', () => {
+      log("SIGNALING", "Peer left the call");
+      pcRef.current?.close();
+      helper.handleHomeNavigation();
+    });
 
     // Instant-match flow: caller asks to join after listeners are ready (with retry)
     let cancelled = false;
@@ -169,6 +174,7 @@ export const Room = () => {
       socket.off('webrtc:add-ice-candidate');
       socket.off('room:admitted');
       socket.off('room:denied');
+      socket.off('room:peer-left');
     };
   }, []);
 
@@ -293,6 +299,9 @@ export const Room = () => {
 
   const handleEndCall = () => { 
     log("SIGNALING", "Ending call", { roomId });
+    if (roomId) {
+      socket.emit('room:end-call', { roomId });
+    }
     pcRef.current?.close();
     helper.handleHomeNavigation();
   };

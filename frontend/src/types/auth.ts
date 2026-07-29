@@ -6,13 +6,15 @@ export interface AuthUser {
 
 export interface AuthResponse {
   message: string;
-  accessToken: string;
   user: AuthUser;
 }
 
 export interface RefreshResponse {
   message: string;
-  accessToken: string;
+}
+
+export interface MeResponse {
+  user: AuthUser;
 }
 
 export interface ApiError {

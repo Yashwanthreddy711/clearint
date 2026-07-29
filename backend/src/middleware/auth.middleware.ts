@@ -7,17 +7,11 @@ export const authMiddleware = (
   next: NextFunction
 ) => {
   try {
+    const cookieToken = req.cookies?.accessToken;
     const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({ message: "Authorization header missing" });
-    }
-
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Invalid authorization format" });
-    }
-
-    const token = authHeader.split(" ")[1];
+    const headerToken =
+      authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    const token = cookieToken || headerToken;
 
     if (!token) {
       return res.status(401).json({ message: "Access token missing" });
@@ -34,4 +28,4 @@ export const authMiddleware = (
   } catch (error) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
-};
+}; 

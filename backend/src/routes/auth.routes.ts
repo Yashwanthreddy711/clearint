@@ -1,6 +1,13 @@
 import { Router } from "express";
-import { logout, refreshAccessToken, register } from "../controllers/authController";
-import { login } from "../controllers/authController";
+import {
+  getMe,
+  logout,
+  refreshAccessToken,
+  register,
+  login,
+} from "../controllers/authController";
+import { authMiddleware } from "../middleware/auth.middleware";
+
 const router = Router();
 
 // register
@@ -11,6 +18,9 @@ router.post("/login", login);
 
 // refresh
 router.post("/refresh", refreshAccessToken);
+
+// current user (requires auth cookie)
+router.get("/me", authMiddleware, getMe);
 
 // logout
 router.post("/logout", logout);

@@ -42,7 +42,7 @@ export function Login() {
 
     try {
       const data = await login(email, password);
-      setAuth(data.accessToken, data.user);
+      setAuth(data.user);
       navigate(from, { replace: true });
     } catch (err) {
       const apiErr = err as Error & { status?: number; errors?: unknown };
