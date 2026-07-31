@@ -9,8 +9,23 @@ import { comparePassword } from "../utils/password";
 import jwt from "jsonwebtoken";
 import {
   REFRESH_TOKEN_MAX_AGE_MS,
+  accessTokenCookieOptions,
   refreshTokenCookieOptions,
 } from "../utils/cookieOptions";
+
+function setAuthCookies(
+  res: Response,
+  accessToken: string,
+  refreshToken: string
+) {
+  res.cookie("accessToken", accessToken, accessTokenCookieOptions());
+  res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions());
+}
+
+function clearAuthCookies(res: Response) {
+  res.clearCookie("accessToken", accessTokenCookieOptions(0));
+  res.clearCookie("refreshToken", refreshTokenCookieOptions(0));
+}
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -69,15 +84,10 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      refreshTokenCookieOptions()
-    );
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.status(201).json({
       message: "User registered successfully",
-      accessToken,
       user: {
         id: user.id,
         username: user.username,
@@ -153,15 +163,10 @@ export const login = async (req: Request, res: Response) => {
       },
     });
 
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      refreshTokenCookieOptions()
-    );
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.status(200).json({
       message: "Login successful",
-      accessToken,
       user: {
         id: user.id,
         username: user.username,
@@ -238,6 +243,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       },
     });
 
+    res.cookie("accessToken", newAccessToken, accessTokenCookieOptions());
     res.cookie(
       "refreshToken",
       newRefreshToken,
@@ -246,7 +252,6 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       message: "Token refreshed successfully",
-      accessToken: newAccessToken,
     });
   } catch (error) {
     console.error("Refresh error:", error);
@@ -258,9 +263,9 @@ export const logout = async (req: Request, res: Response) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
 
-    // even if token missing, clear cookie anyway
+    // even if token missing, clear cookies anyway
     if (!refreshToken) {
-      res.clearCookie("refreshToken", refreshTokenCookieOptions());
+      clearAuthCookies(res);
 
       return res.status(200).json({ message: "Logged out successfully" });
     }
@@ -279,11 +284,39 @@ export const logout = async (req: Request, res: Response) => {
       },
     });
 
-    res.clearCookie("refreshToken", refreshTokenCookieOptions());
+    clearAuthCookies(res);
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error("Get me error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
