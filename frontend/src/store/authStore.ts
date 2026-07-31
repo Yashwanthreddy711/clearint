@@ -12,21 +12,54 @@ interface AuthState {
   setInitialized: (value: boolean) => void;
 }
 
+function decodeJwtPayload(token: string) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(
+      Math.ceil(normalized.length / 4) * 4,
+      '='
+    );
+
+    return JSON.parse(atob(padded)) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+export function isAccessTokenExpired(token: string | null) {
+  if (!token) return true;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+
+  return Date.now() >= payload.exp * 1000;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       accessToken: null,
       user: null,
       isInitialized: false,
-      setAuth: (accessToken) => set({ accessToken }),
+      setAuth: (accessToken, user) => set({ accessToken, user }),
       setAccessToken: (accessToken) => set({ accessToken }),
-      clearAuth: () => set({ accessToken: null }),
+      clearAuth: () => set({ accessToken: null, user: null }),
       setInitialized: (isInitialized) => set({ isInitialized }),
     }),
     {
       name: 'clearint-auth',
       partialize: (state) => ({
         accessToken: state.accessToken,
+        user: state.user
+          ? {
+              id: state.user.id,
+              username: state.user.username,
+              email: state.user.email,
+            }
+          : null,
       }),
     }
   )

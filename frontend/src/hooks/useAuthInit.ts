@@ -1,41 +1,45 @@
 import { useEffect } from 'react';
-import { refreshAccessToken } from '../api/auth';
-import { useAuthStore } from '../store/authStore';
+import {
+  isAccessTokenExpired,
+  useAuthStore,
+} from '../store/authStore';
 
 export function useAuthInit() {
-  const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setInitialized = useAuthStore((s) => s.setInitialized);
 
   useEffect(() => {
     let cancelled = false;
-    let started = false;
 
-    async function init() {
-      if (started) return;
-      started = true;
-
-      try {
-        const { accessToken } = await refreshAccessToken();
-        if (!cancelled) setAccessToken(accessToken);
-      } catch {
-        if (!cancelled) clearAuth();
-      } finally {
-        if (!cancelled) setInitialized(true);
+    const finishInit = () => {
+      if (!cancelled) {
+        setInitialized(true);
       }
-    }
+    };
+
+    const startInit = () => {
+      const state = useAuthStore.getState();
+
+      if (!state.accessToken || isAccessTokenExpired(state.accessToken)) {
+        clearAuth();
+      }
+
+      finishInit();
+    };
 
     const unsub = useAuthStore.persist.onFinishHydration(() => {
-      if (!cancelled) init();
+      if (!cancelled) {
+        startInit();
+      }
     });
 
     if (useAuthStore.persist.hasHydrated()) {
-      init();
+      startInit();
     }
 
     return () => {
       cancelled = true;
       unsub();
     };
-  }, [setAccessToken, clearAuth, setInitialized]);
+  }, [clearAuth, setInitialized]);
 }

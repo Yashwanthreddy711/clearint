@@ -2,7 +2,6 @@ import { API_BASE_URL } from '../config';
 import type {
   ApiError,
   AuthResponse,
-  RefreshResponse,
 } from '../types/auth';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -42,14 +41,6 @@ export async function register(data: {
     body: JSON.stringify(data),
   });
   return parseJson<AuthResponse>(res);
-}
-
-export async function refreshAccessToken() {
-  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  return parseJson<RefreshResponse>(res);
 }
 
 export async function logout() {

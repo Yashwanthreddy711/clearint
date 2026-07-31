@@ -2,15 +2,9 @@ import { Request, Response } from "express";
 import prisma from "../db/prisma";
 import { registerSchema } from "../validators/auth.validator";
 import { hashPassword } from "../utils/password";
-import { generateAccessToken, generateRefreshToken } from "../utils/jwt";
-import { hashToken } from "../utils/hash";
+import { generateAccessToken } from "../utils/jwt";
 import { loginSchema } from "../validators/auth.validator";
 import { comparePassword } from "../utils/password";
-import jwt from "jsonwebtoken";
-import {
-  REFRESH_TOKEN_MAX_AGE_MS,
-  refreshTokenCookieOptions,
-} from "../utils/cookieOptions";
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -55,25 +49,7 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // generate tokens
     const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
-    // store refresh token in db (hashed)
-    await prisma.userRefreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
-        ipAddress: req.ip || null,
-        userAgent: req.headers["user-agent"] || null,
-      },
-    });
-
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      refreshTokenCookieOptions()
-    );
 
     return res.status(201).json({
       message: "User registered successfully",
@@ -130,34 +106,14 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // generate tokens
     const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken(user.id);
 
-    // store refresh token hash in DB
-    await prisma.userRefreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
-        ipAddress: req.ip || null,
-        userAgent: req.headers["user-agent"] || null,
-      },
-    });
-
-    // update last login
     await prisma.user.update({
       where: { id: user.id },
       data: {
         lastLoginAt: new Date(),
       },
     });
-
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      refreshTokenCookieOptions()
-    );
 
     return res.status(200).json({
       message: "Login successful",
@@ -174,113 +130,8 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
- 
-export const refreshAccessToken = async (req: Request, res: Response) => {
+export const logout = async (_req: Request, res: Response) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
-
-    if (!refreshToken) {
-      return res.status(401).json({ message: "Refresh token missing" });
-    }
-
-    // verify refresh token signature
-    let decoded: any;
-    try {
-      decoded = jwt.verify(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET as string
-      );
-    } catch (err) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    const userId = decoded.userId;
-
-    // check refresh token in DB
-    const tokenHash = hashToken(refreshToken);
-
-    const storedToken = await prisma.userRefreshToken.findFirst({
-      where: { tokenHash },
-    });
-
-    if (!storedToken || !storedToken.isValid || storedToken.revokedAt) {
-      return res.status(401).json({ message: "Refresh token revoked/invalid" });
-    }
-
-    if (storedToken.expiresAt < new Date()) {
-      return res.status(401).json({ message: "Refresh token expired" });
-    }
-
-    // generate new access token
-    const newAccessToken = generateAccessToken(userId);
-
-    // ROTATION (real-world best practice)
-    const newRefreshToken = generateRefreshToken(userId);
-    const newRefreshHash = hashToken(newRefreshToken);
-
-    // invalidate old token
-    await prisma.userRefreshToken.update({
-      where: { id: storedToken.id },
-      data: {
-        isValid: false,
-        revokedAt: new Date(),
-      },
-    });
-
-    // store new refresh token
-    await prisma.userRefreshToken.create({
-      data: {
-        userId,
-        tokenHash: newRefreshHash,
-        expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS),
-        ipAddress: req.ip || null,
-        userAgent: req.headers["user-agent"] || null,
-      },
-    });
-
-    res.cookie(
-      "refreshToken",
-      newRefreshToken,
-      refreshTokenCookieOptions()
-    );
-
-    return res.status(200).json({
-      message: "Token refreshed successfully",
-      accessToken: newAccessToken,
-    });
-  } catch (error) {
-    console.error("Refresh error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const logout = async (req: Request, res: Response) => {
-  try {
-    const refreshToken = req.cookies?.refreshToken;
-
-    // even if token missing, clear cookie anyway
-    if (!refreshToken) {
-      res.clearCookie("refreshToken", refreshTokenCookieOptions());
-
-      return res.status(200).json({ message: "Logged out successfully" });
-    }
-
-    const tokenHash = hashToken(refreshToken);
-
-    // revoke token in DB
-    await prisma.userRefreshToken.updateMany({
-      where: {
-        tokenHash,
-        isValid: true,
-      },
-      data: {
-        isValid: false,
-        revokedAt: new Date(),
-      },
-    });
-
-    res.clearCookie("refreshToken", refreshTokenCookieOptions());
-
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout error:", error);
