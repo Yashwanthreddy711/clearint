@@ -77,37 +77,26 @@ io.on("connection", (socket: Socket) => {
     peer.emit("webrtc:answer", { sdp: sdp, roomId: roomId });
   });
 
-  socket.on("room:end-call", ({ roomId }: { roomId: string }) => {
-    userManager.endCall(roomId, socket);
-  });
-
-  socket.on("queue:leave", () => {
-    userManager.removeUserFromQueue(socket);
-  });
-
-  socket.on("webrtc:join-queue-request", (payload: { username?: string } | string) => {
-    const peerObj = userManager.pushUserToQueue(socket);
-    if (peerObj) {
-      const peer = peerObj.peer;
-      const roomId = peerObj.roomid;
-      socket.emit("room:joined", {
-        roomId: roomId,
-        role: "caller",
-      });
-      peer?.emit("room:joined", {
-        roomId: roomId,
-        role: "receiver",
-      });
-    } else {
-      socket.emit("queue:waiting", {
-        message:
-          "No one else is in the queue right now. Please wait for another user to join, or create a room with your friend.",
-      });
+  socket.on("webrtc:join-queue-request", (username: string) => {
+    // Implement instant match logic here
+    const peerObj=userManager.pushUserToQueue(socket);
+    if(peerObj){
+      const peer=peerObj.peer;
+      const roomId=peerObj.roomid;
+      socket.emit('room:joined',{
+        roomId:roomId,
+        role:"caller"});
+      peer?.emit('room:joined',{
+        roomId:roomId,
+        role:"receiver"}
+      );
+    }
+    else{
+      console.log("Peer object is null");
     }
   });
   socket.on("disconnect", () => {
     userManager.removeUserFromQueue(socket);
-    userManager.handleDisconnect(socket);
     console.log("user disconnected", socket.id);
   });
 });

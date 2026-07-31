@@ -3,9 +3,11 @@ import { persist } from 'zustand/middleware';
 import type { AuthUser } from '../types/auth';
 
 interface AuthState {
+  accessToken: string | null;
   user: AuthUser | null;
   isInitialized: boolean;
-  setAuth: (user: AuthUser) => void;
+  setAuth: (accessToken: string, user: AuthUser) => void;
+  setAccessToken: (accessToken: string) => void;
   clearAuth: () => void;
   setInitialized: (value: boolean) => void;
 }
@@ -13,17 +15,21 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
+      accessToken: null,
       user: null,
       isInitialized: false,
-      setAuth: (user) => set({ user }),
-      clearAuth: () => set({ user: null }),
+      setAuth: (accessToken) => set({ accessToken }),
+      setAccessToken: (accessToken) => set({ accessToken }),
+      clearAuth: () => set({ accessToken: null }),
       setInitialized: (isInitialized) => set({ isInitialized }),
     }),
     {
       name: 'clearint-auth',
       partialize: (state) => ({
-        user: state.user,
+        accessToken: state.accessToken,
       }),
     }
   )
 );
+
+export const getAccessToken = () => useAuthStore.getState().accessToken;

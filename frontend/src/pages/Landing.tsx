@@ -18,8 +18,6 @@ import { log } from '../services/log';
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [activeTab, setActiveTab] = useState<'join' | 'queue'>('join');
-    const [isQueueWaiting, setIsQueueWaiting] = useState(false);
-    const [queueMessage, setQueueMessage] = useState('');
     const videoRef = useRef<HTMLVideoElement>(null);
     useEffect(() => {
       if (user?.username && !name) {
@@ -108,31 +106,12 @@ import { log } from '../services/log';
   
     function handleJoinQueue() {
       log("SIGNALING", "User clicked on join queue");
-      setIsQueueWaiting(true);
-      setQueueMessage('Looking for a match…');
-
       socket.emit('webrtc:join-queue-request', { username: displayName });
-
-      socket.once('queue:waiting', (data: { message: string }) => {
-        log("SIGNALING", "Waiting in queue", { data });
-        setIsQueueWaiting(true);
-        setQueueMessage(data.message);
-      });
-
-      socket.once('room:joined', (data: { roomId: string; role: string }) => {
-        log("SIGNALING", "User Joined the Queue", { roomId: data.roomId });
-        setIsQueueWaiting(false);
+      socket.on('room:joined', (data: { roomId: string; role: string }) => {
+        log("SIGNALING", "User Joined the Queue", { roomId });
         userRoleState.getState().setUserState(data.role);
         handleRoomNavigation(data.roomId);
       });
-    }
-
-    function handleCancelQueue() {
-      setIsQueueWaiting(false);
-      setQueueMessage('');
-      socket.emit('queue:leave');
-      socket.off('queue:waiting');
-      socket.off('room:joined');
     }
   
     return (
@@ -341,48 +320,21 @@ import { log } from '../services/log';
                   <p className="text-zinc-500 text-xs leading-relaxed">
                     You'll be automatically matched with another participant for a mock interview session.
                   </p>
-                  {isQueueWaiting ? (
-                    <div className="flex flex-col gap-3 px-4 py-4 bg-amber-950/30 border border-amber-800/50 rounded-2xl">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                        <p className="text-amber-200 text-sm font-medium">Waiting in queue</p>
+                  <button
+                    onClick={handleJoinQueue}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-2xl transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
+                        <Users size={15} className="text-zinc-300" />
                       </div>
-                      <p className="text-amber-100/80 text-xs leading-relaxed">
-                        {queueMessage ||
-                          'No one else is in the queue right now. Please wait for another user to join, or create a room with your friend.'}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setActiveTab('join')}
-                          className="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-medium transition-colors border border-zinc-700"
-                        >
-                          Create room with friend
-                        </button>
-                        <button
-                          onClick={handleCancelQueue}
-                          className="px-4 py-2.5 text-zinc-400 hover:text-white text-xs transition-colors"
-                        >
-                          Cancel
-                        </button>
+                      <div className="text-left">
+                        <p className="text-white text-sm font-semibold">Join the Queue</p>
+                        <p className="text-zinc-500 text-[11px]">Get matched automatically</p>
                       </div>
                     </div>
-                  ) : (
-                    <button
-                      onClick={handleJoinQueue}
-                      className="w-full flex items-center justify-between px-5 py-4 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-2xl transition-all group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center">
-                          <Users size={15} className="text-zinc-300" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-white text-sm font-semibold">Join the Queue</p>
-                          <p className="text-zinc-500 text-[11px]">Get matched automatically</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                  )}
+                    <ChevronRight size={16} className="text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                 </div>
               )}
             </div>

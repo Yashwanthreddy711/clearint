@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { fetchMe, refreshAccessToken } from '../api/auth';
+import { refreshAccessToken } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
 export function useAuthInit() {
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setInitialized = useAuthStore((s) => s.setInitialized);
 
@@ -16,9 +16,8 @@ export function useAuthInit() {
       started = true;
 
       try {
-        await refreshAccessToken();
-        const { user } = await fetchMe();
-        if (!cancelled) setAuth(user);
+        const { accessToken } = await refreshAccessToken();
+        if (!cancelled) setAccessToken(accessToken);
       } catch {
         if (!cancelled) clearAuth();
       } finally {
@@ -38,5 +37,5 @@ export function useAuthInit() {
       cancelled = true;
       unsub();
     };
-  }, [setAuth, clearAuth, setInitialized]);
+  }, [setAccessToken, clearAuth, setInitialized]);
 }

@@ -2,7 +2,6 @@ import { API_BASE_URL } from '../config';
 import type {
   ApiError,
   AuthResponse,
-  MeResponse,
   RefreshResponse,
 } from '../types/auth';
 
@@ -51,13 +50,6 @@ export async function refreshAccessToken() {
     credentials: 'include',
   });
   return parseJson<RefreshResponse>(res);
-}
-
-export async function fetchMe() {
-  const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-    credentials: 'include',
-  });
-  return parseJson<MeResponse>(res);
 }
 
 export async function logout() {
