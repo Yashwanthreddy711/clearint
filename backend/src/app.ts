@@ -1,5 +1,5 @@
 // src/app.ts
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
@@ -13,6 +13,17 @@ const app = express();
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
+
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  const startedAt = Date.now();
+
+  _res.on('finish', () => {
+    const duration = Date.now() - startedAt;
+    console.log(`[HTTP] ${req.method} ${req.originalUrl} -> ${_res.statusCode} (${duration}ms)`);
+  });
+
+  next();
+});
 
 app.use(cookieParser());
 
