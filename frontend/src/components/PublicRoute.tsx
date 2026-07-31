@@ -6,7 +6,7 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { user, isInitialized } = useAuthStore();
+  const { accessToken, isInitialized } = useAuthStore();
 
   if (!isInitialized) {
     return (
@@ -16,7 +16,7 @@ export function PublicRoute({ children }: PublicRouteProps) {
     );
   }
 
-  if (user) {
+  if (accessToken) {
     return <Navigate to="/" replace />;
   }
 

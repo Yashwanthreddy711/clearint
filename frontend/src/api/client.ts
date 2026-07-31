@@ -1,19 +1,20 @@
 import { API_BASE_URL } from '../config';
 import { refreshAccessToken } from './auth';
-import { useAuthStore } from '../store/authStore';
+import { getAccessToken, useAuthStore } from '../store/authStore';
 
-let refreshPromise: Promise<boolean> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
-async function tryRefresh(): Promise<boolean> {
+async function tryRefresh(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     try {
-      await refreshAccessToken();
-      return true;
+      const { accessToken } = await refreshAccessToken();
+      useAuthStore.getState().setAccessToken(accessToken);
+      return accessToken;
     } catch {
       useAuthStore.getState().clearAuth();
-      return false;
+      return null;
     } finally {
       refreshPromise = null;
     }
@@ -27,14 +28,22 @@ export async function apiFetch(
   options: RequestInit = {},
   retry = true
 ): Promise<Response> {
+  const token = getAccessToken();
+  const headers = new Headers(options.headers);
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    headers,
     credentials: 'include',
   });
 
   if (res.status === 401 && retry) {
-    const refreshed = await tryRefresh();
-    if (refreshed) {
+    const newToken = await tryRefresh();
+    if (newToken) {
       return apiFetch(path, options, false);
     }
   }

@@ -72,23 +72,4 @@ export class UserManager {
     findRandomUser(){
       return this.queue[Math.floor(Math.random() * this.queue.length)];
     }
-
-    endCall(roomId: string, socket: Socket) {
-      const peer = this.getPeerDetails(roomId, socket, "");
-      if (peer) {
-        peer.emit("room:peer-left");
-      }
-      this.roomManager.removeRoom(roomId);
-    }
-
-    handleDisconnect(socket: Socket) {
-      const roomId = this.roomManager.findRoomIdBySocket(socket.id);
-      if (!roomId) return;
-
-      const peer = this.roomManager.getPeerDetailsWithRoomId(roomId, socket.id);
-      if (peer) {
-        peer.emit("room:peer-left");
-      }
-      this.roomManager.removeRoom(roomId);
-    }
 }

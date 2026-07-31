@@ -35,20 +35,6 @@ export class RoomManager {
     }
     return null;
   }
-
-  findRoomIdBySocket(socketId: string): string | null {
-    for (const [roomId, room] of this.rooms.entries()) {
-      if (room.user1?.id === socketId || room.user2?.id === socketId) {
-        return roomId;
-      }
-    }
-    return null;
-  }
-
-  removeRoom(roomId: string) {
-    this.rooms.delete(roomId);
-  }
-
   generateRoomId() {
     return GLOBAL_ROOM_ID++;
   }

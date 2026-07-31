@@ -42,7 +42,7 @@ export function Register() {
         password,
         ...(mobileNo.trim() ? { mobileNo: mobileNo.trim() } : {}),
       });
-      setAuth(data.user);
+      setAuth(data.accessToken, data.user);
       navigate('/', { replace: true });
     } catch (err) {
       const apiErr = err as Error & { errors?: unknown };
