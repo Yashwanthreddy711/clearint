@@ -20,7 +20,7 @@ export function useAuthInit() {
     const startInit = () => {
       const state = useAuthStore.getState();
 
-      if (!state.accessToken || isAccessTokenExpired(state.accessToken)) {
+      if (state.accessToken && isAccessTokenExpired(state.accessToken)) {
         clearAuth();
       }
 
