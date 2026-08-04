@@ -4,51 +4,31 @@ import {
   useAuthStore,
 } from '../store/authStore';
 
-const PERSISTED_AUTH_KEY = 'clearint-auth';
-
-function readPersistedAuthState() {
-  try {
-    const raw = window.localStorage.getItem(PERSISTED_AUTH_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as {
-      state?: {
-        accessToken?: string | null;
-        user?: {
-          id: string;
-          username: string;
-          email: string;
-        } | null;
-      };
-    };
-
-    return parsed.state ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function useAuthInit() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setInitialized = useAuthStore((s) => s.setInitialized);
 
   useEffect(() => {
-    const persistedState = readPersistedAuthState();
-    const currentState = useAuthStore.getState();
+    let isMounted = true;
 
-    if (persistedState?.accessToken) {
-      if (isAccessTokenExpired(persistedState.accessToken)) {
+    async function initializeAuth() {
+      await useAuthStore.persist.rehydrate();
+
+      const state = useAuthStore.getState();
+
+      if (state.accessToken && isAccessTokenExpired(state.accessToken)) {
         clearAuth();
-      } else {
-        useAuthStore.setState({
-          accessToken: persistedState.accessToken,
-          user: persistedState.user ?? null,
-        });
       }
-    } else if (currentState.accessToken && isAccessTokenExpired(currentState.accessToken)) {
-      clearAuth();
+
+      if (isMounted) {
+        setInitialized(true);
+      }
     }
 
-    setInitialized(true);
+    void initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [clearAuth, setInitialized]);
 }
