@@ -10,6 +10,11 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface MeResponse {
+  message: string;
+  user: AuthUser;
+}
+
 export interface RefreshResponse {
   message: string;
   accessToken: string;

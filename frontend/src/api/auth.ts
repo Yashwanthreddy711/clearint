@@ -2,6 +2,7 @@ import { API_BASE_URL } from '../config';
 import type {
   ApiError,
   AuthResponse,
+  MeResponse,
 } from '../types/auth';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -41,6 +42,18 @@ export async function register(data: {
     body: JSON.stringify(data),
   });
   return parseJson<AuthResponse>(res);
+}
+
+export async function getCurrentUser(accessToken: string) {
+  const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: 'include',
+  });
+
+  return parseJson<MeResponse>(res);
 }
 
 export async function logout() {
