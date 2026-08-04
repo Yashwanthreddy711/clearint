@@ -44,16 +44,16 @@ export const register = async (req: Request, res: Response) => {
 
     const { username, email, password, mobileNo } = parsedData.data;
 
-    logAuthEvent("register:validation_ok", {
-      email,
-      username,
-    });
+    // logAuthEvent("register:validation_ok", {
+    //   email,
+    //   username,
+    // });
 
-    // check existing user
-    logAuthEvent("register:check_existing_user", {
-      email,
-      username,
-    });
+    // // check existing user
+    // logAuthEvent("register:check_existing_user", {
+    //   email,
+    //   username,
+    // });
 
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -66,19 +66,19 @@ export const register = async (req: Request, res: Response) => {
     });
 
     if (existingUser) {
-      logAuthEvent("register:user_exists", {
-        email,
-        username,
-      });
+      // logAuthEvent("register:user_exists", {
+      //   email,
+      //   username,
+      // });
 
       return res.status(409).json({
         message: "User already exists with email/username/mobile",
       });
     }
 
-    logAuthEvent("register:hash_password", {
-      email,
-    });
+    // logAuthEvent("register:hash_password", {
+    //   email,
+    // });
 
     const passwordHash = await hashPassword(password);
 
@@ -92,17 +92,17 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    logAuthEvent("register:user_created", {
-      userId: user.id,
-      email: user.email,
-    });
+    // logAuthEvent("register:user_created", {
+    //   userId: user.id,
+    //   email: user.email,
+    // });
 
     const accessToken = generateAccessToken(user.id);
 
-    logAuthEvent("register:success", {
-      userId: user.id,
-      email: user.email,
-    });
+    // logAuthEvent("register:success", {
+    //   userId: user.id,
+    //   email: user.email,
+    // });
 
     return res.status(201).json({
       message: "User registered successfully",
@@ -219,6 +219,37 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logAuthError("login:exception", error, req);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const me = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid session" });
+    }
+
+    return res.status(200).json({
+      message: "Session valid",
+      user,
+    });
+  } catch (error) {
+    logAuthError("me:exception", error, req);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

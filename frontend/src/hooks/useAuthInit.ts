@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { getCurrentUser } from '../api/auth';
 import {
   isAccessTokenExpired,
   useAuthStore,
@@ -16,12 +17,33 @@ export function useAuthInit() {
 
       const state = useAuthStore.getState();
 
-      if (state.accessToken && isAccessTokenExpired(state.accessToken)) {
-        clearAuth();
+      if (!state.accessToken) {
+        if (isMounted) {
+          setInitialized(true);
+        }
+        return;
       }
 
-      if (isMounted) {
-        setInitialized(true);
+      if (isAccessTokenExpired(state.accessToken)) {
+        clearAuth();
+        if (isMounted) {
+          setInitialized(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await getCurrentUser(state.accessToken);
+        useAuthStore.setState({
+          accessToken: state.accessToken,
+          user: response.user,
+        });
+      } catch {
+        clearAuth();
+      } finally {
+        if (isMounted) {
+          setInitialized(true);
+        }
       }
     }
 
