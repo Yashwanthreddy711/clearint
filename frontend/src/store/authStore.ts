@@ -61,6 +61,11 @@ export const useAuthStore = create<AuthState>()(
             }
           : null,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken && isAccessTokenExpired(state.accessToken)) {
+          state.clearAuth();
+        }
+      },
     }
   )
 );
