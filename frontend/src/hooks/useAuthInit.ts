@@ -2,6 +2,30 @@ import { useEffect } from 'react';
 import { getCurrentUser } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
+const PERSISTED_AUTH_KEY = 'clearint-auth';
+
+function readPersistedAuthState() {
+  try {
+    const raw = window.localStorage.getItem(PERSISTED_AUTH_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as {
+      state?: {
+        accessToken?: string | null;
+        user?: {
+          id: string;
+          username: string;
+          email: string;
+        } | null;
+      };
+    };
+
+    return parsed.state ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function useAuthInit() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setInitialized = useAuthStore((s) => s.setInitialized);
@@ -10,11 +34,10 @@ export function useAuthInit() {
     let isMounted = true;
 
     async function initializeAuth() {
-      await useAuthStore.persist.rehydrate();
+      const persistedState = readPersistedAuthState();
+      const accessToken = persistedState?.accessToken ?? useAuthStore.getState().accessToken;
 
-      const state = useAuthStore.getState();
-
-      if (!state.accessToken) {
+      if (!accessToken) {
         if (isMounted) {
           setInitialized(true);
         }
@@ -22,9 +45,9 @@ export function useAuthInit() {
       }
 
       try {
-        const response = await getCurrentUser(state.accessToken);
+        const response = await getCurrentUser(accessToken);
         useAuthStore.setState({
-          accessToken: state.accessToken,
+          accessToken,
           user: response.user,
         });
       } catch {
