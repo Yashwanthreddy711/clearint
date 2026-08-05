@@ -61,10 +61,10 @@ export const useAuthStore = create<AuthState>()(
             }
           : null,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.accessToken && isAccessTokenExpired(state.accessToken)) {
-          state.clearAuth();
-        }
+      onRehydrateStorage: () => () => {
+        // Let the backend /me endpoint decide whether the session is still valid.
+        // Client-side expiry checks here can prevent the auth bootstrap from
+        // ever reaching the server verification request.
       },
     }
   )
