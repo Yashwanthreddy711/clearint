@@ -18,10 +18,10 @@ export async function apiFetch(
     credentials: 'include',
   });
 
-  if (res.status === 401) {
-    useAuthStore.getState().clearAuth();
-  }
-
+  // Keep the stored access token intact during refresh/bootstrap.
+  // The backend refresh flow should decide whether the token
+  // needs to be reissued; the frontend should not wipe the token
+  // immediately on a 401 response.
   return res;
 }
 

@@ -37,6 +37,13 @@ export function useAuthInit() {
       const persistedState = readPersistedAuthState();
       const accessToken = persistedState?.accessToken ?? useAuthStore.getState().accessToken;
 
+      if (accessToken) {
+        useAuthStore.setState({
+          accessToken,
+          user: persistedState?.user ?? useAuthStore.getState().user,
+        });
+      }
+
       if (!accessToken) {
         if (isMounted) {
           setInitialized(true);
@@ -50,8 +57,8 @@ export function useAuthInit() {
           accessToken,
           user: response.user,
         });
-      } catch {
-        clearAuth();
+      } catch (error) {
+        console.warn('Auth bootstrap could not validate the session:', error);
       } finally {
         if (isMounted) {
           setInitialized(true);
