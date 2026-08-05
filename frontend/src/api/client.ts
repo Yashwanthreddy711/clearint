@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../config';
-import { getAccessToken, useAuthStore } from '../store/authStore';
+import { getAccessToken } from '../store/authStore';
 
 export async function apiFetch(
   path: string,
