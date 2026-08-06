@@ -44,16 +44,16 @@ export const register = async (req: Request, res: Response) => {
 
     const { username, email, password, mobileNo } = parsedData.data;
 
-    // logAuthEvent("register:validation_ok", {
-    //   email,
-    //   username,
-    // });
+    logAuthEvent("register:validation_ok", {
+      email,
+      username,
+    });
 
-    // // check existing user
-    // logAuthEvent("register:check_existing_user", {
-    //   email,
-    //   username,
-    // });
+    // check existing user
+    logAuthEvent("register:check_existing_user", {
+      email,
+      username,
+    });
 
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -66,19 +66,19 @@ export const register = async (req: Request, res: Response) => {
     });
 
     if (existingUser) {
-      // logAuthEvent("register:user_exists", {
-      //   email,
-      //   username,
-      // });
+      logAuthEvent("register:user_exists", {
+        email,
+        username,
+      });
 
       return res.status(409).json({
         message: "User already exists with email/username/mobile",
       });
     }
 
-    // logAuthEvent("register:hash_password", {
-    //   email,
-    // });
+    logAuthEvent("register:hash_password", {
+      email,
+    });
 
     const passwordHash = await hashPassword(password);
 
@@ -92,17 +92,17 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // logAuthEvent("register:user_created", {
-    //   userId: user.id,
-    //   email: user.email,
-    // });
+    logAuthEvent("register:user_created", {
+      userId: user.id,
+      email: user.email,
+    });
 
     const accessToken = generateAccessToken(user.id);
 
-    // logAuthEvent("register:success", {
-    //   userId: user.id,
-    //   email: user.email,
-    // });
+    logAuthEvent("register:success", {
+      userId: user.id,
+      email: user.email,
+    });
 
     return res.status(201).json({
       message: "User registered successfully",
