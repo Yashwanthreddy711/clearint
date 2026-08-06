@@ -58,10 +58,10 @@ export function useAuthInit() {
           user: response.user,
         });
       } catch (error) {
-        const err = error as Error & { status?: number };
-        if (err?.status === 401) {
-          clearAuth();
-        }
+        // const err = error as Error & { status?: number };
+        // if (err?.status === 401) {
+        //   clearAuth();
+        // }
         console.warn('Auth bootstrap could not validate the session:', error);
       } finally {
         if (isMounted) {
