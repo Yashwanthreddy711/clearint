@@ -18,12 +18,27 @@ import { log } from '../services/log';
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [activeTab, setActiveTab] = useState<'join' | 'queue'>('join');
+    const [queueStatus, setQueueStatus] = useState<'loading' | 'empty' | 'busy'>('loading');
     const videoRef = useRef<HTMLVideoElement>(null);
+
     useEffect(() => {
       if (user?.username && !name) {
         setName(user.username);
       }
     }, [user?.username]);
+
+    useEffect(() => {
+      const handleQueueStatus = (data: { size: number }) => {
+        setQueueStatus(data.size > 0 ? 'busy' : 'empty');
+      };
+
+      socket.on('queue:status', handleQueueStatus);
+      socket.emit('queue:request-status');
+
+      return () => {
+        socket.off('queue:status', handleQueueStatus);
+      };
+    }, []);
 
     const displayName = name.trim() || user?.username || 'Guest';
 
@@ -66,6 +81,7 @@ import { log } from '../services/log';
         getCam();
       }
     }, [videoRef]);
+
   
     const handleToggleMute = () => {
       if (localAudioTrack.current) {
@@ -106,7 +122,9 @@ import { log } from '../services/log';
   
     function handleJoinQueue() {
       log("SIGNALING", "User clicked on join queue");
+      setQueueStatus('busy');
       socket.emit('webrtc:join-queue-request', { username: displayName });
+      socket.off('room:joined');
       socket.on('room:joined', (data: { roomId: string; role: string }) => {
         log("SIGNALING", "User Joined the Queue", { roomId });
         userRoleState.getState().setUserState(data.role);
@@ -317,9 +335,16 @@ import { log } from '../services/log';
               {/* Join Queue panel */}
               {activeTab === 'queue' && (
                 <div className="flex flex-col gap-3">
-                  <p className="text-zinc-500 text-xs leading-relaxed">
-                    You'll be automatically matched with another participant for a mock interview session.
-                  </p>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                    <p className="text-sm font-semibold text-white">
+                      {queueStatus === 'busy' ? 'A peer is waiting' : 'Queue is empty'}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                      {queueStatus === 'busy'
+                        ? 'You are now in the queue and will be matched as soon as a partner is available.'
+                        : 'Create a room with your peer and invite them to join.'}
+                    </p>
+                  </div>
                   <button
                     onClick={handleJoinQueue}
                     className="w-full flex items-center justify-between px-5 py-4 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 border border-zinc-700 hover:border-zinc-600 rounded-2xl transition-all group"

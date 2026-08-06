@@ -20,6 +20,9 @@ export class UserManager {
    const res=this.instantMatchUser(socket);
    return res;
   }
+  getQueueSize() {
+    return this.queue.length;
+  }
   removeUserFromQueue(socket:Socket){
     this.queue=this.queue.filter((index:Socket) => index.id!==socket.id);
   }

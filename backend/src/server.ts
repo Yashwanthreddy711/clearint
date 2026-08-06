@@ -21,13 +21,30 @@ const io = new Server(server, {
 
 const userManager = new UserManager();
 
+const emitQueueStatus = (targetSocket?: Socket) => {
+  const payload = { size: userManager.getQueueSize() };
+  if (targetSocket) {
+    targetSocket.emit("queue:status", payload);
+  } else {
+    io.emit("queue:status", payload);
+  }
+};
+
 io.on("connection", (socket: Socket) => {
+  emitQueueStatus(socket);
+
+  socket.on("queue:request-status", () => {
+    emitQueueStatus(socket);
+  });
+
   socket.on("room:create", (username: string) => {
     const roomId = userManager.createRoom(socket, username);
+    socket.join(roomId);
     socket.emit("room:created", { roomId: roomId });
   });
   socket.on("room:join-request", ({ roomId, username }) => {
     const response = userManager.joinRoom(roomId, socket, username);
+    socket.join(roomId);
     socket.emit("room:joined", { roomId: roomId, peer: response }); // for now the user has to ask to join the room and has to wait till the peer accepts the request
   });
   socket.on(
@@ -83,6 +100,8 @@ io.on("connection", (socket: Socket) => {
     if(peerObj){
       const peer=peerObj.peer;
       const roomId=peerObj.roomid;
+      socket.join(roomId);
+      peer?.join(roomId);
       socket.emit('room:joined',{
         roomId:roomId,
         role:"caller"});
@@ -94,10 +113,22 @@ io.on("connection", (socket: Socket) => {
     else{
       console.log("Peer object is null");
     }
+    emitQueueStatus();
   });
   socket.on("disconnect", () => {
     userManager.removeUserFromQueue(socket);
+    emitQueueStatus();
     console.log("user disconnected", socket.id);
+  });
+
+  socket.on("room:end-call", (roomId: string) => {
+    const roomSockets = io.sockets.adapter.rooms.get(roomId);
+    if (!roomSockets) return;
+
+    roomSockets.forEach((socketId:any) => {
+      const peerSocket = io.sockets.sockets.get(socketId);
+      peerSocket?.emit('room:ended');
+    });
   });
 });
 
